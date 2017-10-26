@@ -1,3 +1,4 @@
+rm(list=ls())
 library(tidyverse)
 library(tmap)
 # library(rgdal)
@@ -7,17 +8,22 @@ library(sp)
 # library(EnvStats)
 
 # data loading -----
-sites_loading <- cols(rok_w_cyklu = col_factor(levels = NULL), # for propoer data loading I need to provide column classes
-                    rdlp = col_factor(levels = NULL),
-                    nadl = col_factor(levels = NULL),
-                    kraina = col_factor(levels = NULL),
-                    gat_pan_pr = col_factor(levels = NULL),
-                    b_pion_pow_pr = col_factor(levels = NULL),
-                    tsl = col_factor(levels = NULL),
-                    okr_tsl = col_factor(levels = NULL),
-                    stan_siedl = col_factor(levels = NULL)
-                    )
-sites_area_gps <- read_tsv("sites_area_gps.txt", col_types = sites_loading)
+sites_loading <- cols(nr_punktu = col_integer(), # column classes for proper data loading  
+                      nr_podpow = col_integer(),
+                      rok_w_cyklu = col_factor(levels = NULL),
+                      rdlp = col_factor(levels = NULL),
+                      nadl = col_factor(levels = NULL),
+                      kraina = col_factor(levels = NULL),
+                      gat_pan_pr = col_factor(levels = NULL),
+                      wiek_pan_pr = col_integer(),
+                      b_pion_pow_pr = col_factor(levels = NULL),
+                      tsl = col_factor(levels = NULL),
+                      okr_tsl = col_factor(levels = NULL),
+                      stan_siedl = col_factor(levels = NULL)
+)
+sites <- read_tsv("sites.txt", col_types = sites_loading)
+area <- read_tsv("area.txt")
+gps_coord <- read_tsv("gps_coord.txt")
 
 trees_loading <- cols(gat = col_factor(levels = NULL), 
                       war = col_factor(levels = NULL)) 
@@ -54,7 +60,7 @@ trees %>%
 
 
 ####################
-### Wersja Sochy ### DO POPRAWY
+### Wersja Sochy ###
 ####################
 
 values <- tibble(
@@ -67,30 +73,24 @@ values <- tibble(
 
 trees %>%
   group_by(nr_podpow) %>%
-  filter(!is.na(d13), gat == "SO") %>%
-  # left_join(., sites_area_gps, by = "nr_podpow") %>%
-  summarise(n_d = n_distinct(d13), # liczba pierśnic na powierzchni próbnej
-            # pow = mean(pow), # wielkość powierzchni próbnej - co z małymi powierzchniami?
-            # zageszczenie = n_d/(pow/10000),
-            # wskaznik = ceiling(pow/100), # liczba arów powierzchni = liczba drzew do SI
-            # D100 = sqrt(mean((d13[order(-d13)[1:wskaznik]])^2, na.rm = TRUE))/10, # średnia kwadratowa najgrubszych pierśnic
-            # Dg = sqrt(mean(d13^2))/10, # średnia kwadratowa wszystkich pierśnic na powierzchni
-            n_h = n_distinct(h), # liczba pomierzonych wysokości
-            H = weighted.mean(h, d13, na.rm = TRUE), # średnia wysokość ważona pierśnicą
-            # b = o*(Hg^r), 
-            # a = (Dg/(sqrt(Hg-1.3)))-b*Dg, 
-            # H = (D100/(a+b*D100))^2+1.3, # wysokość 100 najgruszych drzew na ha
-            wiek = mean(wiek), # wiek powierzchni
-            SI=H*((100^values$b1)*((wiek^values$b1)*(H-values$b3+(((H-values$b3)^2)+(2*values$b2*H)/(wiek^values$b1))^0.5)+values$b2))/((wiek^values$b1)*((100^values$b1)*(H-values$b3+(((H-values$b3)^2)+(2*values$b2*H)/(wiek^values$b1))^0.5)+values$b2))) %>% 
+  filter(gat == "SO") %>%
+  summarise(
+    # n_d = add_count(d13), # liczba pierśnic na powierzchni próbnej
+    # n_h = n_distinct(h), # liczba pomierzonych wysokości
+    H = weighted.mean(h, d13, na.rm = TRUE), # średnia wysokość ważona pierśnicą
+    wiek = mean(wiek), # wiek powierzchni
+    SI = H * ((100 ^ values$b1) * ((wiek ^ values$b1) * (H - values$b3 + (((H - values$b3) ^ 2) + 
+         (2 * values$b2 * H) / (wiek ^ values$b1)) ^ 0.5) + values$b2)) / ((wiek ^ values$b1) * 
+         ((100 ^ values$b1) * (H - values$b3 + (((H - values$b3) ^ 2) + (2 * values$b2 * H)
+         /(wiek ^ values$b1)) ^ 0.5) + values$b2))) %>% 
   dplyr::mutate(kw = cut(wiek, breaks=seq(0, 260, by=20))) %>%
-  # filter(pow > 199) %>%
   arrange(desc(SI)) -> site_index
 
 levels(site_index$kw) <- c("I", "II", "III", "IV", "V", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st")
 
 ### połączenie ze współrzędnymi GPS
 
-site_index_gps <- dplyr::left_join(site_index, sites_area_gps, by = "nr_podpow") %>% na.omit()
+site_index_area <- dplyr::left_join(site_index, area, by = "nr_podpow") %>% na.omit()
 
 ggplot(site_index, aes(SI)) + geom_freqpoly(binwidth = 1)
 ggplot(site_index, aes(x = "", y = SI)) + geom_boxplot()
