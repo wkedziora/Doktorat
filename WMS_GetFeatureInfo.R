@@ -1,7 +1,7 @@
 rm(list=ls()) #clearing the memory
 
 library(httr)
-library(dplyr)
+library(tidyverse)
 library(rvest)
 library(xml2)
 
@@ -40,20 +40,26 @@ read_xml(query) %>%
 
 # looping in WMS for data -----
 #loading resultsGPS file with GPS of every sample plot I need to investigate
-gps.coord.sample <- read_tsv("gps.txt")
+gps_coord_sample <- read_tsv("resultGPS2.txt")
 
-gps.coord <- gps.coord.sample
-n <- nrow(gps.coord)
-m <- ncol(gps.coord)
+gps_coord <- gps_coord_sample
+n <- nrow(gps_coord)
+m <- ncol(gps_coord)
 for (i in 1:n) {
-bbox <- (paste0("bbox=", paste(gps.coord[i,4], gps.coord[i,3], gps.coord[i,4]+0.000001, gps.coord[i,3]+0.000001, sep = ","), "&"))
+bbox <- (paste0("bbox=", paste(gps_coord[i,4], gps_coord[i,3], gps_coord[i,4]+0.000001, gps_coord[i,3]+0.000001, sep = ","), "&"))
 query <- paste0(server, request, service, version, layers, styles, srs, bbox, width, height, query_layers, x, y)
-read_xml(query) %>% xml_find_all(., "//d1:FIELDS", xml_ns(.)) %>% xml_attrs(.) %>% unlist(.) %>% as.list(.) %>% data.frame(., stringsAsFactors = FALSE) -> results
-if (is.null(results[1,1]) == FALSE) {gps.coord[i,m+1] <- results[1,1]} else {gps.coord[i,m+1] <- NA}
+read_xml(query) %>% 
+  xml_find_all(., "//d1:FIELDS", xml_ns(.)) %>% 
+  xml_attrs(.) %>% 
+  unlist(.) %>% 
+  as.list(.) %>% 
+  data.frame(., stringsAsFactors = FALSE) -> results
+if (is.null(results[1,1]) == FALSE) {gps_coord[i,m+1] <- results[1,1]} else {gps_coord[i,m+1] <- NA}
 }
-names(gps.coord)[m+1] <- c("litography_500k")
-gps.coord$litography <- factor(gps.coord$litography)
-summary(gps.coord)
+names(gps_coord)[m+1] <- c("litography_500k")
+gps_coord$litography <- factor(gps_coord$litography)
+gps_coord$litography_500k <- factor(gps_coord$litography_500k)
+summary(gps_coord)
 
 # saving output -----
-write.table(gps.coord, "resultGPS2.txt", sep="\t", row.names=FALSE)
+write_tsv(gps_coord, "litography_500k.txt")
