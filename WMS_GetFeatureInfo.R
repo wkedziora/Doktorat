@@ -1,14 +1,14 @@
 rm(list=ls()) #clearing the memory
-setwd("D:\\Praca\\Badania\\Doktorat\\") #setting working directory
 
-#loading libraries
 library(httr)
 library(dplyr)
 library(rvest)
 library(xml2)
 
+# bulding query -----
 #setting query parameters, all have to be provided (empty for styles means default)
-server <- c("http://cbdgmapa.pgi.gov.pl/arcgis/services/kartografia/smgp50k/MapServer/WMSServer?")
+server_old <- c("http://cbdgmapa.pgi.gov.pl/arcgis/services/kartografia/smgp50k/MapServer/WMSServer?")
+server <- c("http://cbdgmapa.pgi.gov.pl/arcgis/services/kartografia/mgp500k/MapServer/WMSServer?")
 request <- c("request=GetFeatureInfo&")
 service <- c("service=WMS&")
 version <- c("version=1.1.1&")
@@ -27,24 +27,18 @@ y <- c("y=0&") #in case of exteding no. of query parameteres remember to add "&"
 # preapring query to send
 query <- paste0(server, request, service, version, layers, styles, srs, bbox, width, height, query_layers, x, y)
 
-######################
-### Original query ###
-######################
-# cdbg <- GET("http://cbdgmapa.pgi.gov.pl/arcgis/services/kartografia/smgp50k/MapServer/WMSServer?
-#     request=GetFeatureInfo&service=WMS&version=1.1.1&layers=0&styles=&srs=EPSG%3A4326&bbox=18.765420,52.341627,18.765421,52.341628&
-#     width=780&height=330&query_layers=0&x=0&y=0")
-
-# cdbg <- GET(query) #sending query
-
 #TODO: when query sends "null" response - omitt record
 
-# #asking for content, parsing to xml and then to list, and unlisting to vector
-# cdbg %>% content(., encoding = "UTF-8") %>% xmlParse(.) %>% xmlToList(.) -> results1
-# results1[[1]] %>% as.list(.) %>% data.frame(., stringsAsFactors = FALSE) -> results2
-
+# testing query -----
 #read query xml response, then axtract attributes and place them into a data frame horizontally
-read_xml(query) %>% xml_find_all(., "//d1:FIELDS", xml_ns(.)) %>% xml_attrs(.) %>% unlist(.) %>% as.list(.) %>% data.frame(., stringsAsFactors = FALSE) -> results
+read_xml(query) %>% 
+  xml_find_all(., "//d1:FIELDS", xml_ns(.)) %>% 
+  xml_attrs(.) %>% 
+  unlist(.) %>% 
+  as.list(.) %>% 
+  data.frame(., stringsAsFactors = FALSE) -> results
 
+# looping in WMS for data -----
 #loading resultsGPS file with GPS of every sample plot I need to investigate
 gps.coord.sample <- read_tsv("gps.txt")
 
@@ -57,8 +51,9 @@ query <- paste0(server, request, service, version, layers, styles, srs, bbox, wi
 read_xml(query) %>% xml_find_all(., "//d1:FIELDS", xml_ns(.)) %>% xml_attrs(.) %>% unlist(.) %>% as.list(.) %>% data.frame(., stringsAsFactors = FALSE) -> results
 if (is.null(results[1,1]) == FALSE) {gps.coord[i,m+1] <- results[1,1]} else {gps.coord[i,m+1] <- NA}
 }
-names(gps.coord)[m+1] <- c("litography")
+names(gps.coord)[m+1] <- c("litography_500k")
 gps.coord$litography <- factor(gps.coord$litography)
 summary(gps.coord)
 
+# saving output -----
 write.table(gps.coord, "resultGPS2.txt", sep="\t", row.names=FALSE)
