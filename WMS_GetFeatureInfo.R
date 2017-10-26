@@ -46,7 +46,7 @@ query <- paste0(server, request, service, version, layers, styles, srs, bbox, wi
 read_xml(query) %>% xml_find_all(., "//d1:FIELDS", xml_ns(.)) %>% xml_attrs(.) %>% unlist(.) %>% as.list(.) %>% data.frame(., stringsAsFactors = FALSE) -> results
 
 #loading resultsGPS file with GPS of every sample plot I need to investigate
-gps.coord.sample <- read.csv2("resultGPS.txt", dec = ".", stringsAsFactors = TRUE, sep="\t")
+gps.coord.sample <- read_tsv("gps.txt")
 
 gps.coord <- gps.coord.sample
 n <- nrow(gps.coord)
