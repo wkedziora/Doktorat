@@ -4,7 +4,7 @@ library(tmap)
 # library(rgdal)
 library(sp)
 # library(FSA)
-# library(RColorBrewer)
+library(RColorBrewer)
 # library(EnvStats)
 
 # data loading -----
@@ -71,8 +71,9 @@ values <- tibble(
   b2 = 4679.9
 )
 
+# main assumption is that I only count in Pine trees
 trees %>%
-  group_by(nr_podpow) %>%
+  group_by(nr_punktu, nr_podpow) %>%
   filter(gat == "SO") %>%
   summarise(
     # n_d = add_count(d13), # liczba pierśnic na powierzchni próbnej
@@ -88,24 +89,34 @@ trees %>%
 
 levels(site_index$kw) <- c("I", "II", "III", "IV", "V", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st")
 
-### połączenie ze współrzędnymi GPS
+### join with area data ----
+site_index_area_unfiltered <- dplyr::left_join(site_index, area, by = "nr_podpow") %>% na.omit()
 
-site_index_area <- dplyr::left_join(site_index, area, by = "nr_podpow") %>% na.omit()
+# main assumption is that on small areas <200m^2 is not enough trees to get proper measurments
+site_index_area_unfiltered %>% filter(pow >= 200) -> site_index_area
 
-ggplot(site_index, aes(SI)) + geom_freqpoly(binwidth = 1)
-ggplot(site_index, aes(x = "", y = SI)) + geom_boxplot()
-ggplot(site_index, aes(sample = SI)) + stat_qq()
-ggplot(site_index, aes(SI)) + stat_ecdf(geom = "step")
-summary(site_index$SI, na.rm = TRUE)
+ggplot(site_index_area, aes(SI)) + geom_freqpoly(binwidth = 1)
+ggplot(site_index_area, aes(x = "", y = SI)) + geom_boxplot()
+ggplot(site_index_area, aes(sample = SI)) + stat_qq()
+ggplot(site_index_area, aes(SI)) + stat_ecdf(geom = "step")
+summary(site_index_area$SI, na.rm = TRUE)
 
-coordinates(site_index_gps) <- ~ lon + lat #adding sptial relationship
-proj4string(site_index_gps) <- "+init=epsg:4326" #adding WGS84 projection
+site_index_area_gps <- dplyr::left_join(site_index_area, gps_coord, by = "nr_punktu") %>% na.omit()
 
-tm_shape(site_index_gps) + tm_dots(col = "SI", size = 0.05)
+coordinates(site_index_area_gps) <- ~ lon + lat #adding sptial relationship
+proj4string(site_index_area_gps) <- "+init=epsg:4326" #adding WGS84 projection
 
-
-# 
-
+# site index map plotting -----
+data(Europe, rivers)
+vistula <- subset(rivers, name == "Vistula")
+tm_shape(Europe, bbox = "Poland", projection="longlat", is.master = TRUE) + 
+  tm_borders() +
+  tm_shape(vistula) + 
+  tm_lines(col = "steelblue", lwd = 4) +
+  tm_shape(site_index_area_gps) +
+  tm_dots(col = "SI", size = 0.05, palette = "PiYG", n = 5, auto.palette.mapping = FALSE) +
+  tm_style_white(legend.position = c("left", "bottom"))
+#
 
 
 
@@ -307,15 +318,11 @@ dane %>%
 # średni SI dla nadleśnictwa w kraju - 
 # mapka dla całego kraju w podziale na nadleśnictwa plus podział na młodsze i starsze? w klasach wieku?
 
-# co z przestojami w kodzie "war"
 
-# sprawdzić jak ma się zależność od wzoru Sochy - celowość tworzenia modeli
-# uzyć krainy gdzie Socha badał w południowej Polsce żeby to sprawdzić i porównać
 
-# porównanie SI między dwoma cyklami? różnice w bonitacjach na tej samej powierzchni
-# analiza różnic
-# błąd pomiaru wysokości:
-# w 5 lat mały przyrost - możliwość dużych błędów przy małych wzrostach
+
+
+
 
 # prezentacja na semianrium - użyć starej prezentacji: zmodyfikować wykres prezentujący SI
 #  - historia SI
@@ -323,3 +330,19 @@ dane %>%
 #  - pierwsze wyniki
 #      - dwie grupy: wielkości bonitacji w różnych podziałach
 #      - badanie związku z różnymi elementami środowiska
+
+### solved problems -----
+
+# co z przestojami w kodzie "war" - przestoje maja inny kod "war" = 10 lub 11
+
+# nowy wzór od Sochy:
+# sprawdzić jak ma się zależność od wzoru Sochy - celowość tworzenia modeli
+# uzyć krainy gdzie Socha badał w południowej Polsce żeby to sprawdzić i porównać
+
+### future ideas -----
+
+# porównanie SI między dwoma cyklami? różnice w bonitacjach na tej samej powierzchni
+# analiza różnic
+# błąd pomiaru wysokości:
+# w 5 lat mały przyrost - możliwość dużych błędów przy małych wzrostach
+
