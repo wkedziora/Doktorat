@@ -14,16 +14,16 @@ con <- dbConnect(odbc::odbc(), dsn = "WISL", encoding = "Windows-1250")#connecti
 # data loading -----
 sites_raw <- dbReadTable(con, "ADRES_POW") #site description
 trees_raw <- dbReadTable(con, "DRZEWA_OD_7") #tree measurments
-plot_a_raw <- dbReadTable(con, "POW_A_B") #plot data
+area_raw <- dbReadTable(con, "POW_A_B") #plot data
 gps_coord_raw <- dbReadTable(con, "PUNKTY_TRAKTU") # GPS coordinates
 
 # data wrangling -----
 # I am querying for area of sample plot needed later
-plot_a_raw %>% # raw data loading to pipe
+area_raw %>% # raw data loading to pipe
   as_tibble(.) %>% # changing format to tibble
   filter(NR_CYKLU == 2) %>% # filtering out only second cycle
   select(nr_podpow = NR_PODPOW, # selecting only interesitng colmuns
-         pow = POW_A) -> plot_a # creating a new tibble
+         pow = POW_A) -> area # creating a new tibble
 
 # I need doubles for later use of Spatial Data 
 gps_coord_raw %>%
@@ -55,9 +55,11 @@ trees_raw %>%
 # write_tsv(sample_n(gps_coord, 100), "gps.coord.sample.txt")
 
 # joining files -----
-sites_area <- dplyr::left_join(sites, plot_a, by = "nr_podpow") # joining sample plot area to site description
-sites_area_gps <- dplyr::left_join(sites_area, gps_coord, by = "nr_punktu") # adding GPS position data
+# sites_area <- dplyr::left_join(sites, plot_a, by = "nr_podpow") # joining sample plot area to site description
+# sites_area_gps <- dplyr::left_join(sites_area, gps_coord, by = "nr_punktu") # adding GPS position data
 
 # exporting data ----- 
-write_tsv(sites_area_gps, "sites_area_gps.txt") # saving tabular format for later analysis
+write_tsv(sites, "sites.txt") # saving tabular format for later analysis
 write_tsv(trees, "trees.txt")
+write_tsv(area, "area.txt")
+write_tsv(gps_coord, "gps_coord.txt")
