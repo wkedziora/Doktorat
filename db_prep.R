@@ -21,35 +21,52 @@ gps_coord_raw <- dbReadTable(con, "PUNKTY_TRAKTU") # GPS coordinates
 # I am querying for area of sample plot needed later
 area_raw %>% # raw data loading to pipe
   as_tibble(.) %>% # changing format to tibble
-  filter(NR_CYKLU == 2) %>% # filtering out only second cycle
-  select(nr_podpow = NR_PODPOW, # selecting only interesitng colmuns
-         pow = POW_A) -> area # creating a new tibble
+  dplyr::filter(NR_CYKLU == 2) %>% # filtering out only second cycle
+  dplyr::select(subplot_no = NR_PODPOW, # selecting only interesitng colmuns
+         area = POW_A) -> area # creating a new tibble
 
 # I need doubles for later use of Spatial Data 
 gps_coord_raw %>%
   as_tibble(.) %>%
   type_convert(.) %>%
-  select(nr_punktu = NR_PUNKTU,
+  dplyr::select(plot_no = NR_PUNKTU,
          lat = SZEROKOSC,
          lon = DLUGOSC) -> gps_coord
 
 # I am loading site description data
 sites_raw %>%
   as_tibble(.) %>%
-  rename_all(tolower) %>% # changing all columns to lower case
-  select(nr_punktu, nr_cyklu, nr_podpow, rok_w_cyklu, rdlp, nadl, kraina, gat_pan_pr, wiek_pan_pr, 
-         b_pion_pow_pr, tsl, okr_tsl, stan_siedl) %>%
-  dplyr::filter(nr_cyklu == 2, gat_pan_pr == "SO") %>%
-  select(-nr_cyklu) %>%
-  type_convert(., col_types = cols_only(gat_pan_pr = col_factor(levels = NULL))) -> sites # converting column to factor
+  dplyr::rename_all(tolower) %>% # changing all columns to lower case
+  dplyr::select(plot_no = nr_punktu,
+         cycle_no = nr_cyklu,
+         subplot_no = nr_podpow,
+         cycle_year = rok_w_cyklu,
+         reigon = kraina,
+         plot_species = gat_pan_pr,
+         plot_age = wiek_pan_pr,
+         vertical = b_pion_pow_pr, 
+         habitat = tsl, 
+         habitat_style = okr_tsl, 
+         habitat_status = stan_siedl) %>%
+  dplyr::filter(cycle_no == 2, plot_species == "SO") %>%
+  dplyr::select(-cycle_no) %>%
+  type_convert(., col_types = cols_only(plot_species = col_factor(levels = NULL))) -> sites # converting column to factor
 
 # loading tree data for the next script
 trees_raw %>%
   as_tibble(.) %>%
-  rename_all(tolower) %>%
-  select(nr_punktu, nr_cyklu, nr_podpow, gat, wiek, war, azymut, odl, h, d13) %>%
+  dplyr::rename_all(tolower) %>%
+  dplyr::select(nr_punktu, nr_cyklu, nr_podpow, gat, wiek, war, azymut, odl, h, d13) %>%
   dplyr::filter(nr_cyklu == 2, war == 1) %>%
-  type_convert(., col_types = cols(nr_punktu = col_integer()))-> trees
+  dplyr::select(-c(nr_cyklu, war)) %>%
+  dplyr::rename(plot_no = nr_punktu,
+         subplot_no = nr_podpow,
+         species = gat,
+         age = wiek,
+         azimuth = azymut,
+         dist = odl,
+         dbh = d13) %>%
+  type_convert(., col_types = cols(plot_no = col_integer()))-> trees
 
 # sample for WMS_GetFeatureInfo.R testing -----
 # write_tsv(sample_n(gps_coord, 100), "gps.coord.sample.txt")
