@@ -8,30 +8,27 @@ library(RColorBrewer)
 # library(EnvStats)
 
 # data loading -----
-sites_loading <- cols(nr_punktu = col_integer(), # column classes for proper data loading  
-                      nr_podpow = col_integer(),
-                      rok_w_cyklu = col_factor(levels = NULL),
-                      rdlp = col_factor(levels = NULL),
-                      nadl = col_factor(levels = NULL),
-                      kraina = col_factor(levels = NULL),
-                      gat_pan_pr = col_factor(levels = NULL),
-                      wiek_pan_pr = col_integer(),
-                      b_pion_pow_pr = col_factor(levels = NULL),
-                      tsl = col_factor(levels = NULL),
-                      okr_tsl = col_factor(levels = NULL),
-                      stan_siedl = col_factor(levels = NULL)
+sites_loading <- cols(plot_no = col_integer(), # column classes for proper data loading  
+                      subplot_no = col_factor(levels = NULL),
+                      cycle_year = col_factor(levels = NULL),
+                      reigon = col_factor(levels = NULL),
+                      plot_species = col_factor(levels = NULL),
+                      plot_age = col_factor(levels = NULL),
+                      vertical = col_factor(levels = NULL),
+                      habitat = col_factor(levels = NULL),
+                      habitat_style = col_factor(levels = NULL),
+                      habitat_status = col_factor(levels = NULL)
 )
-sites <- read_tsv("sites.txt", col_types = sites_loading)
-area <- read_tsv("area.txt")
-gps_coord <- read_tsv("gps_coord.txt")
+sites <- read_tsv("data/sites.txt", col_types = sites_loading)
+area <- read_tsv("data/area.txt")
+gps_coord <- read_tsv("data/gps_coord.txt")
 
 litography_500k_loading <- cols(tsl = col_factor(levels = NULL), 
                       ukszt_ter = col_factor(levels = NULL)) 
-litography_500k <- read_tsv("litography_500k.txt", col_types = litography_500k_loading)
+litography_500k <- read_tsv("data/litography_500k.txt", col_types = litography_500k_loading)
 
-trees_loading <- cols(gat = col_factor(levels = NULL), 
-                      war = col_factor(levels = NULL)) 
-trees <- read_tsv("trees.txt", col_types = trees_loading)
+trees_loading <- cols(species = col_factor(levels = NULL)) 
+trees <- read_tsv("data/trees.txt", col_types = trees_loading)
 
 # data wrangling -----
 ggplot(trees, aes(h)) + geom_freqpoly(binwidth = 1)
@@ -65,8 +62,6 @@ trees %>%
 ### Site Index calculations ----------------
 
 values <- tibble(
-  o = 0.7445,
-  r = -0.4531,
   b1 = 1.381,
   b3 = 32.947,
   b2 = 4679.9
@@ -315,6 +310,8 @@ dane %>%
 #  - pierwsze wyniki
 #      - dwie grupy: wielkości bonitacji w różnych podziałach
 #      - badanie związku z różnymi elementami środowiska
+
+# różne wieki na powierzchni próbnej w drzewach z pomierzoną wysokością - co z tym fantem?
 
 ### solved problems -----
 
