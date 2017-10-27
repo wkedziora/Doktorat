@@ -76,7 +76,7 @@ trees_raw %>%
 # sites_area_gps <- dplyr::left_join(sites_area, gps_coord, by = "nr_punktu") # adding GPS position data
 
 # exporting data ----- 
-write_tsv(sites, "sites.txt") # saving tabular format for later analysis
-write_tsv(trees, "trees.txt")
-write_tsv(area, "area.txt")
-write_tsv(gps_coord, "gps_coord.txt")
+write_tsv(sites, paste0(getwd(), "/data/sites.txt")) # saving tabular format for later analysis
+write_tsv(trees, paste0(getwd(), "/data/trees.txt"))
+write_tsv(area, paste0(getwd(), "/data/area.txt"))
+write_tsv(gps_coord, paste0(getwd(), "/data/gps_coord.txt"))
