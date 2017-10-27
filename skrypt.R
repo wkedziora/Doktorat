@@ -25,6 +25,10 @@ sites <- read_tsv("sites.txt", col_types = sites_loading)
 area <- read_tsv("area.txt")
 gps_coord <- read_tsv("gps_coord.txt")
 
+litography_500k_loading <- cols(tsl = col_factor(levels = NULL), 
+                      ukszt_ter = col_factor(levels = NULL)) 
+litography_500k <- read_tsv("litography_500k.txt", col_types = litography_500k_loading)
+
 trees_loading <- cols(gat = col_factor(levels = NULL), 
                       war = col_factor(levels = NULL)) 
 trees <- read_tsv("trees.txt", col_types = trees_loading)
@@ -58,10 +62,7 @@ trees %>%
   ggplot(aes(n, z)) +
   geom_bar(stat = "identity")
 
-
-####################
-### Wersja Sochy ###
-####################
+### Site Index calculations ----------------
 
 values <- tibble(
   o = 0.7445,
@@ -131,9 +132,7 @@ wynikGPS %>%
   
 write.table(wynikGPS, "resultGPS.txt", sep="\t", row.names=FALSE)
 
-#########################
-### WYNIKI DLA POLSKI ###
-#########################
+# results for Poland -----
 
 wynik2 %>% summarise(srednia = mean(SI), 
                     mediana = median(SI),
@@ -174,9 +173,7 @@ kruskal.test(SI ~ kw, wynik2)
 pairwise.wilcox.test(wynik2$SI, wynik2$kw, p.adjust.method = "BH")
 dunnTest(SI ~ kw, data = wynik, method="bh")
 
-#########################
-### WYNIKI DLA KRAIN  ###
-#########################
+# results for regions -----
 
 wynik2 %>% 
   group_by(kraina) %>%
@@ -231,9 +228,7 @@ ggplot(data = wynik, aes(x = kraina, y = SI, group = kraina)) +
   labs(x = "kraina przyrodniczo-leśna (kpl)", y = "wskaźnik bonitacji (SI)") +
   scale_y_continuous(limits = c(0, 60))
 
-################################
-### WYNIKI DLA NADLEŚNICTW   ###
-################################
+## results for Forest Inspectorates -----
 
 wynik %>% 
   group_by(kodn) %>%
@@ -261,9 +256,7 @@ spplot(nadles3.shp, zcol = "IV", at = seq(0, 60, by = 4))
 spplot(nadles3.shp, zcol = "V", at = seq(0, 60, by = 4))
 spplot(nadles3.shp, zcol = "VI", at = seq(0, 60, by = 4))
 
-########################
-### WYNIKI DLA TSL   ###
-########################
+# results for habitats -----
 
 wynik %>% 
   group_by(tsl) %>%
@@ -277,8 +270,6 @@ SI  + geom_histogram() + facet_wrap(~tsl)
 
 # wykres w podziale na tsl w zależności od wieku
 ggplot(data = subset(wynik, !is.na(tsl)), aes(x = wiek, y = SI)) + geom_point() + facet_wrap(~tsl)
-
-
 
 dane2 %>%
   filter(nr_podpow == 60083401)
@@ -317,12 +308,6 @@ dane %>%
 
 # średni SI dla nadleśnictwa w kraju - 
 # mapka dla całego kraju w podziale na nadleśnictwa plus podział na młodsze i starsze? w klasach wieku?
-
-
-
-
-
-
 
 # prezentacja na semianrium - użyć starej prezentacji: zmodyfikować wykres prezentujący SI
 #  - historia SI
