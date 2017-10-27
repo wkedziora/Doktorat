@@ -3,54 +3,174 @@ title: "Scots pine Site Index - first look"
 author: "Wojciech Kedziora"
 date: "27-10-2017"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
+knitr::clean_cache()
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.width=12, fig.height=8) 
+library(tidyverse)
+library(tmap)
+library(sp)
+library(RColorBrewer)
 ```
 
-# National Forest Inventory in Poland
+# Theory
+## National Forest Inventory in Poland
 
 National Forest Inventory in Poland is a comprhensive survey of forests. It ocnsists of ~28k sample plots all over the country. Plots are being gathered into so called "tracts". Tractc centres are distributed on 4x4 km grid, that have been based upon ICP Forest sample plots (Fig. 1.).
 
-![Fig. 1. Tracts display.](D:/Praca/Badania/Doktorat/img/tracts.jpg)
+![Fig. 1. Tracts display.](D:/Praca/Badania/Doktorat/img/tracts.jpg){width=500px}
 
-![Fig. 2. Single tract.](D:/Praca/Badania/Doktorat/img/tract.jpg)
+Each tract consists of five sample plots formed in L-shape. Distance between nearest ones is 200 m. Sample plots are blocked in tracts to make them more accesible and to ease the work of field brigades.
 
+![Fig. 2. Single tract.](D:/Praca/Badania/Doktorat/img/tract.jpg){width=500px}
 
-![Fig. 3. Sample plot.](D:/Praca/Badania/Doktorat/img/sample_plot.jpg)
+Each sample plot consists of two different sub-plots. Sub-plot A is bigger, concentric one. Trees thicker than 7 cm of diameter at 130 cm above ground (i.e. diameter at breast hieight - *dbh*) are being measured there. The area changes due to age of a tree stand. On B sub-plot we measure trees thiner than 7 cm *dbh* in a donut-shaped ring. It has an area of 20 m^2^.
 
-# Site Index
+![Fig. 3. Sample plot.](D:/Praca/Badania/Doktorat/img/sample_plot.jpg){width=500px}
 
-![Fig. 4. Site Index.](D:/Praca/Badania/Doktorat/img/site_index.jpg)
+## Site Index
 
-# Data loading
+Site Index (*SI*) is a proxy measure for soil fertility. It models height of 100 heighest trees per hactare in the age of 100 years. In Fig. 4. example tree stand has 32 years and 14 meters height. Model shows that in age of 100 years it should have 27,2 meters, thus its *SI* should be of the same value.
 
-# Data summary
+![Fig. 4. Site Index.](D:/Praca/Badania/Doktorat/img/site_index.jpg){width=500px}
 
-# Site Index calculation
+# Practice
+## Data loading
 
-# Site Index summary
-
-# Site Index map
-
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r loading_trees, echo = TRUE}
+trees_loading <- cols(species = col_factor(levels = NULL)) 
+trees <- read_tsv("trees.txt", col_types = trees_loading)
+trees
 ```
 
-## Including Plots
+*plot_no* it is obviously identifier of a unique sample plot. However sample plots can be divided into subplots (*subplot_no*) -- *e.g.* when sample plot lies on the border of forest and non-forest.
 
-You can also embed plots, for example:
+*species* means what kind specimen is being recorded. In this case we are focused on Scots pine (*Pinus sylvatica* L.) which is translatd to Polish as *sosna* and abbreviated as **SO**.
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+*age* is self explanatory
+
+*azimuth* and *dist* are polar coordinates that are recording exact location of sampled tree
+
+*h* is recorded height of a tree. On each sample plot there are only one or two measurments of height for each species because it is a time consuming operation.  
+
+*dbh* is mentioned previously, diameter at breast height, *i.e.* 130 cm above ground.
+
+## Data summary
+
+```{r trees-histogram, warning = FALSE}
+ggplot(trees, aes(h)) + geom_freqpoly(binwidth = 1)
+```
+```{r trees-boxplot, warning = FALSE}
+ggplot(trees, aes(x = "", y = h)) + geom_boxplot()
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r trees-qqnorm, warning = FALSE}
+ggplot(trees, aes(sample = h)) + stat_qq()
+```
+
+```{r trees-ecdf, warning = FALSE}
+ggplot(trees, aes(h)) + stat_ecdf(geom = "step")
+```
+
+```{r trees-summary}
+summary(trees$h, na.rm = TRUE)
+```
+
+```{r unique_h_on_sample_plot}
+trees %>%
+  filter(!is.na(h)) %>%
+  group_by(subplot_no) %>%
+  summarise(n = n_distinct(h)) %>%
+  group_by(n) %>%
+  summarise(z = n_distinct(subplot_no)) %>%
+  ggplot(aes(n, z)) +
+  geom_bar(stat = "identity")
+```
+
+```{runique_pine_h_on_sample_plot}
+trees %>%
+  group_by(subplot_no) %>%
+  filter(!is.na(dbh), species == "SO") %>%
+  filter(!is.na(h)) %>%
+  group_by(subplot_no) %>%
+  summarise(n = n_distinct(h)) %>%
+  group_by(n) %>%
+  summarise(z = n_distinct(subplot_no)) %>%
+  ggplot(aes(n, z)) +
+  geom_bar(stat = "identity")
+```
+
+## Site Index calculation
+
+```{r variables_for_site_index}
+values <- tibble(
+  o = 0.7445,
+  r = -0.4531,
+  b1 = 1.381,
+  b3 = 32.947,
+  b2 = 4679.9
+)
+```
+
+```{r site_index_computation, cache = TRUE}
+trees %>%
+  group_by(plot_no, subplot_no) %>%
+  filter(species == "SO") %>%
+  summarise(
+    H = weighted.mean(h, dbh, na.rm = TRUE),
+    age = mean(age), # still not sure if it's the best idea
+    SI = H * ((100 ^ values$b1) * ((age ^ values$b1) * (H - values$b3 + (((H - values$b3) ^ 2) + 
+         (2 * values$b2 * H) / (age ^ values$b1)) ^ 0.5) + values$b2)) / ((age ^ values$b1) * 
+         ((100 ^ values$b1) * (H - values$b3 + (((H - values$b3) ^ 2) + (2 * values$b2 * H)
+         /(age ^ values$b1)) ^ 0.5) + values$b2))) %>% 
+  dplyr::mutate(kw = cut(age, breaks=seq(0, 260, by=20))) %>%
+  arrange(desc(SI)) -> site_index
+
+# adding age classes
+levels(site_index$kw) <- c("I", "II", "III", "IV", "V", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st")
+
+```
+
+## Site Index summary
+```{r site_index_summary}
+### join with area data ----
+site_index_area_unfiltered <- dplyr::left_join(site_index, area, by = "subplot_no") %>% na.omit()
+
+# main assumption is that on small areas <200m^2 is not enough trees to get proper measurments
+site_index_area_unfiltered %>% filter(area >= 200) -> site_index_area
+
+ggplot(site_index_area, aes(SI)) + geom_freqpoly(binwidth = 1)
+ggplot(site_index_area, aes(x = "", y = SI)) + geom_boxplot()
+ggplot(site_index_area, aes(sample = SI)) + stat_qq()
+ggplot(site_index_area, aes(SI)) + stat_ecdf(geom = "step")
+summary(site_index_area$SI, na.rm = TRUE)
+```
+
+
+## Site Index map
+
+```{r site_index_map}
+library(raster)
+library(sp)
+gps_coord <- read_tsv("gps_coord.txt")
+site_index_area_gps <- dplyr::left_join(site_index_area, gps_coord, by = "plot_no") %>% na.omit()
+
+coordinates(site_index_area_gps) <- ~ lon + lat #adding sptial relationship
+proj4string(site_index_area_gps) <- "+init=epsg:4326" #adding WGS84 projection
+
+# site index map plotting -----
+data(Europe, rivers)
+vistula <- subset(rivers, name == "Vistula")
+tm_shape(Europe, bbox = "Poland", projection="longlat", is.master = TRUE) + 
+  tm_borders() +
+  tm_shape(vistula) + 
+  tm_lines(col = "steelblue", lwd = 4) +
+  tm_shape(site_index_area_gps) +
+  tm_dots(col = "SI", size = 0.05, palette = "PiYG", n = 5, auto.palette.mapping = FALSE) +
+  tm_style_white(legend.position = c("left", "bottom"))
+```
+
