@@ -138,6 +138,7 @@ levels(site_index$kw) <- c("I", "II", "III", "IV", "V", "VI i st", "VI i st", "V
 ## Site Index summary
 ```{r site_index_summary}
 ### join with area data ----
+area <- read_tsv("area.txt")
 site_index_area_unfiltered <- dplyr::left_join(site_index, area, by = "subplot_no") %>% na.omit()
 
 # main assumption is that on small areas <200m^2 is not enough trees to get proper measurments
