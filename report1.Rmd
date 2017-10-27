@@ -1,15 +1,41 @@
 ---
 title: "Scots pine Site Index - first look"
-author: "Wojciech Kędziora"
-date: "10 października 2017"
-output: html_document
+author: "Wojciech Kedziora"
+date: "27-10-2017"
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Site Index - what it is?
+# National Forest Inventory in Poland
+
+National Forest Inventory in Poland is a comprhensive survey of forests. It ocnsists of ~28k sample plots all over the country. Plots are being gathered into so called "tracts". Tractc centres are distributed on 4x4 km grid, that have been based upon ICP Forest sample plots (Fig. 1.).
+
+![Fig. 1. Tracts display.](D:/Praca/Badania/Doktorat/img/tracts.jpg)
+
+![Fig. 2. Single tract.](D:/Praca/Badania/Doktorat/img/tract.jpg)
+
+
+![Fig. 3. Sample plot.](D:/Praca/Badania/Doktorat/img/sample_plot.jpg)
+
+# Site Index
+
+![Fig. 4. Site Index.](D:/Praca/Badania/Doktorat/img/site_index.jpg)
+
+# Data loading
+
+# Data summary
+
+# Site Index calculation
+
+# Site Index summary
+
+# Site Index map
+
 
 This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
