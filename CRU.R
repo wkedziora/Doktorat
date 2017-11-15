@@ -19,7 +19,7 @@ Poland.wgs84 <- spTransform(Poland, CRS(wgs.84))
 # MPWE, mean precipitation of the wettest month; 
 # MPDR, mean precipitation of the driest month.
 
-tmp_name <- "d://Praca//Badania//Doktorat//CRU//cru_ts4.01.1901.2016.tmp.dat.nc"
+tmp_name <- "d://Praca//Badania//Doktorat//data//CRU//cru_ts4.01.1901.2016.tmp.dat.nc"
 tmp <- brick(tmp_name, varname="tmp")
 tmp_crop <- crop(tmp, extent(Poland.wgs84), snap='out')
 # plot-test
