@@ -1,4 +1,4 @@
-rm(list=ls())
+# rm(list=ls())
 library(tidyverse)
 library(tmap)
 # library(rgdal)
@@ -23,6 +23,10 @@ sites <- read_tsv("data/sites.txt", col_types = sites_loading)
 area <- read_tsv("data/area.txt")
 gps_coord <- read_tsv("data/gps_coord.txt")
 
+litography_50k_loading <- cols(tsl = col_factor(levels = NULL), 
+                                ukszt_ter = col_factor(levels = NULL)) 
+litography_50k <- read_tsv("data/litography_50k.txt", col_types = litography_50k_loading)
+
 litography_500k_loading <- cols(tsl = col_factor(levels = NULL), 
                       ukszt_ter = col_factor(levels = NULL)) 
 litography_500k <- read_tsv("data/litography_500k.txt", col_types = litography_500k_loading)
@@ -32,7 +36,7 @@ trees <- read_tsv("data/trees.txt", col_types = trees_loading)
 
 # data wrangling -----
 ggplot(trees, aes(h)) + geom_freqpoly(binwidth = 1)
-ggplot(trees, aes(x = "", y = h)) + geom_boxplot()
+ggplot(trees, aes(x = "", y = h)) + geom_boxplot() + coord_flip()
 ggplot(trees, aes(sample = h)) + stat_qq()
 ggplot(trees, aes(h)) + stat_ecdf(geom = "step")
 summary(trees$h, na.rm = TRUE)
@@ -40,22 +44,22 @@ summary(trees$h, na.rm = TRUE)
 # no of sample plots with different no of h measured
 trees %>%
   filter(!is.na(h)) %>%
-  group_by(nr_podpow) %>%
+  group_by(subplot_no) %>%
   summarise(n = n_distinct(h)) %>%
   group_by(n) %>%
-  summarise(z = n_distinct(nr_podpow)) %>%
+  summarise(z = n_distinct(subplot_no)) %>%
   ggplot(aes(n, z)) +
   geom_bar(stat = "identity")
 
 trees %>%
-  group_by(nr_podpow) %>%
-  filter(!is.na(d13), gat == "SO") %>%
-  left_join(., sites_area_gps, by = "nr_podpow") %>%
+  group_by(subplot_no) %>%
+  filter(!is.na(dbh), species == "SO") %>%
+  left_join(., area, by = "subplot_no") %>%
   filter(!is.na(h)) %>%
-  group_by(nr_podpow) %>%
+  group_by(subplot_no) %>%
   summarise(n = n_distinct(h)) %>%
   group_by(n) %>%
-  summarise(z = n_distinct(nr_podpow)) %>%
+  summarise(z = n_distinct(subplot_no)) %>%
   ggplot(aes(n, z)) +
   geom_bar(stat = "identity")
 
@@ -69,27 +73,35 @@ values <- tibble(
 
 # main assumption is that I only count in Pine trees
 trees %>%
-  group_by(nr_punktu, nr_podpow) %>%
-  filter(gat == "SO") %>%
+  group_by(plot_no, subplot_no) %>%
+  filter(species == "SO") %>%
   summarise(
     # n_d = add_count(d13), # liczba pierśnic na powierzchni próbnej
     # n_h = n_distinct(h), # liczba pomierzonych wysokości
-    H = weighted.mean(h, d13, na.rm = TRUE), # średnia wysokość ważona pierśnicą
-    wiek = mean(wiek), # wiek powierzchni
+    H = mean(h, na.rm = TRUE), # średnia wysokość ważona pierśnicą
+    wiek = mean(age), # wiek powierzchni
     SI = H * ((100 ^ values$b1) * ((wiek ^ values$b1) * (H - values$b3 + (((H - values$b3) ^ 2) + 
          (2 * values$b2 * H) / (wiek ^ values$b1)) ^ 0.5) + values$b2)) / ((wiek ^ values$b1) * 
-         ((100 ^ values$b1) * (H - values$b3 + (((H - values$b3) ^ 2) + (2 * values$b2 * H)
-         /(wiek ^ values$b1)) ^ 0.5) + values$b2))) %>% 
+         ((100 ^ values$b1) * (H - values$b3 + (((H - values$b3) ^ 2) + (2 * values$b2 * H) /
+         (wiek ^ values$b1)) ^ 0.5) + values$b2))) %>% 
+  filter(complete.cases(SI)) %>% # muszę w jakiś sposób usunąć wpisy gdzie SO nie jest panująca
   dplyr::mutate(kw = cut(wiek, breaks=seq(0, 260, by=20))) %>%
   arrange(desc(SI)) -> site_index
 
-levels(site_index$kw) <- c("I", "II", "III", "IV", "V", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st")
+scale_this <- function(x){
+  (x - mean(x, na.rm=TRUE)) / sd(x, na.rm=TRUE)
+}
+
+as.data.frame(site_index) %>% mutate(z_mean = as.vector(scale(SI, center = TRUE, scale = FALSE)),
+                                     z_sd = scale_this(SI)) -> site_index_2
+
+levels(site_index_2$kw) <- c("I", "II", "III", "IV", "V", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st")
 
 ### join with area data ----
-site_index_area_unfiltered <- dplyr::left_join(site_index, area, by = "nr_podpow") %>% na.omit()
+site_index_area_unfiltered <- dplyr::left_join(site_index_2, area, by = "subplot_no") %>% na.omit()
 
 # main assumption is that on small areas <200m^2 is not enough trees to get proper measurments
-site_index_area_unfiltered %>% filter(pow >= 200) -> site_index_area
+site_index_area_unfiltered %>% filter(area >= 200) -> site_index_area
 
 ggplot(site_index_area, aes(SI)) + geom_freqpoly(binwidth = 1)
 ggplot(site_index_area, aes(x = "", y = SI)) + geom_boxplot()
@@ -97,7 +109,9 @@ ggplot(site_index_area, aes(sample = SI)) + stat_qq()
 ggplot(site_index_area, aes(SI)) + stat_ecdf(geom = "step")
 summary(site_index_area$SI, na.rm = TRUE)
 
-site_index_area_gps <- dplyr::left_join(site_index_area, gps_coord, by = "nr_punktu") %>% na.omit()
+ggplot(data = site_index, aes(x = kw, y = SI)) + geom_boxplot()
+
+site_index_area_gps <- dplyr::left_join(site_index_area, gps_coord, by = "plot_no") %>% na.omit()
 
 coordinates(site_index_area_gps) <- ~ lon + lat #adding sptial relationship
 proj4string(site_index_area_gps) <- "+init=epsg:4326" #adding WGS84 projection
@@ -113,6 +127,13 @@ tm_shape(Europe, bbox = "Poland", projection="longlat", is.master = TRUE) +
   tm_dots(col = "SI", size = 0.05, palette = "PiYG", n = 5, auto.palette.mapping = FALSE) +
   tm_style_white(legend.position = c("left", "bottom"))
 #
+
+
+### spatstat -------------------------------------------------------------------------------------------------------
+library(spatstat)
+library(spdep)
+
+test2 <- dnearneigh(site_index_area_gps, 0, 1, longlat = TRUE)
 
 
 
