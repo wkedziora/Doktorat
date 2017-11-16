@@ -119,12 +119,9 @@ proj4string(site_index_area_gps) <- "+init=epsg:4326" #adding WGS84 projection
 # site index map plotting -----
 data(Europe, rivers)
 vistula <- subset(rivers, name == "Vistula")
-tm_shape(Europe, bbox = "Poland", projection="longlat", is.master = TRUE) + 
-  tm_borders() +
-  tm_shape(vistula) + 
-  tm_lines(col = "steelblue", lwd = 4) +
-  tm_shape(site_index_area_gps) +
-  tm_dots(col = "SI", size = 0.05, palette = "PiYG", n = 5, auto.palette.mapping = FALSE) +
+tm_shape(Europe, bbox = "Poland", projection="longlat", is.master = TRUE) + tm_borders() +
+  tm_shape(vistula) + tm_lines(col = "steelblue", lwd = 4) +
+  tm_shape(site_index_area_gps) + tm_dots(col = "SI", size = 0.05, palette = "PiYG", n = 5, auto.palette.mapping = FALSE) +
   tm_style_white(legend.position = c("left", "bottom"))
 #
 
@@ -132,18 +129,30 @@ tm_shape(Europe, bbox = "Poland", projection="longlat", is.master = TRUE) +
 ### spatstat -------------------------------------------------------------------------------------------------------
 library(spatstat)
 library(spdep)
+library(maptools)
 
 test2 <- dnearneigh(site_index_area_gps, 0, 1, longlat = TRUE)
+sub_test2 <- subset(test2, subset=card(test2) > 0)
+sub_site_index_area_gps <- subset(site_index_area_gps, subset=card(test2) > 0)
+
+
+test2_w <- nb2listw(sub_test2)
+
+moran.test(sub_site_index_area_gps$SI, test2_w)
+moran.test(sub_site_index_area_gps$SI, test2_w, alternative = "two.sided")
+moran.plot(sub_site_index_area_gps$SI, test2_w)
+
+test3 <- localmoran(sub_site_index_area_gps$SI, test2_w)
+test4 <- localmoran(site_index_area_gps$SI, nb2listw(test2, zero.policy = TRUE), na.action = na.omit)
+
+sp::merge(site_index_area_gps, as.data.frame(test4))
 
 
 
 
 
 
-
-
-
-wynikGPS %>%
+  wynikGPS %>%
   select(point_no = nr_punktu, subpoint_no = nr_podpow, lat = szerokosc, long = dlugosc, SI, tsl, ukszt_ter) -> wynikGPS
   
 write.table(wynikGPS, "resultGPS.txt", sep="\t", row.names=FALSE)
