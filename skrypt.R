@@ -8,6 +8,9 @@ library(RColorBrewer)
 # library(EnvStats)
 
 # data loading -----
+
+# maybe feather? df <- read_feather(paste0(getwd(), "/data/sites"))
+
 sites_loading <- cols(plot_no = col_integer(), # column classes for proper data loading  
                       subplot_no = col_factor(levels = NULL),
                       cycle_year = col_factor(levels = NULL),

@@ -80,3 +80,10 @@ write_tsv(sites, paste0(getwd(), "/data/sites.txt")) # saving tabular format for
 write_tsv(trees, paste0(getwd(), "/data/trees.txt"))
 write_tsv(area, paste0(getwd(), "/data/area.txt"))
 write_tsv(gps_coord, paste0(getwd(), "/data/gps_coord.txt"))
+
+library(feather)
+path <- "my_data.feather"
+write_feather(df, path)
+write_feather(sites, paste0(getwd(), "/data/sites"))
+
+
