@@ -21,11 +21,14 @@ data <- data.frame(coordinates(gps_coord),
                    raster::extract(worldclim, gps_coord))
 names(data)[3] <- c("SI")
 
+pairs(data[,c(3:12)])
+
 coordinates(data) <- ~ long + lat
 proj4string(data) <- "+init=epsg:4326" #adding WGS84 projection
 
-linear_model <- lm(SI ~ ., data = data)
+linear_model <- lm(SI ~ wc2.0_bio_5m_04 + wc2.0_bio_5m_05 + wc2.0_bio_5m_12, data = data) #u Sochy R = 0,29
 summary(linear_model)
 
-g_linear_model <- glm(SI ~ ., data = data)
-summary(g_linear_model)
+library(gam)
+gam_model <- gam(SI ~ wc2.0_bio_5m_04 + wc2.0_bio_5m_05 + wc2.0_bio_5m_12, data = data) #u Sochy R = 0,29
+summary(gam_model)
