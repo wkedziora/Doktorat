@@ -12,9 +12,9 @@ library(RColorBrewer)
 # maybe feather? df <- read_feather(paste0(getwd(), "/data/sites"))
 
 sites_loading <- cols(plot_no = col_integer(), # column classes for proper data loading  
-                      subplot_no = col_factor(levels = NULL),
+                      subplot_no = col_integer(),
                       cycle_year = col_factor(levels = NULL),
-                      reigon = col_factor(levels = NULL),
+                      region = col_factor(levels = NULL),
                       plot_species = col_factor(levels = NULL),
                       plot_age = col_factor(levels = NULL),
                       vertical = col_factor(levels = NULL),
@@ -89,42 +89,40 @@ trees %>%
          (wiek ^ values$b1)) ^ 0.5) + values$b2))) %>% 
   filter(complete.cases(SI)) %>% # muszę w jakiś sposób usunąć wpisy gdzie SO nie jest panująca
   dplyr::mutate(kw = cut(wiek, breaks=seq(0, 260, by=20))) %>%
-  arrange(desc(SI)) -> site_index
+  arrange(desc(SI)) -> site_index_raw
 
+# main assumption is that on small areas <200m^2 is not enough trees to get proper measurments
+site_index <- dplyr::inner_join(sites, site_index_raw, by = "subplot_no", suffix = c("", ".y")) %>% 
+  dplyr::left_join(., area, by = "subplot_no") %>% 
+  filter(area >= 200)
+ 
 scale_this <- function(x){
   (x - mean(x, na.rm=TRUE)) / sd(x, na.rm=TRUE)
 }
 
-as.data.frame(site_index) %>% mutate(z_mean = as.vector(scale(SI, center = TRUE, scale = FALSE)),
-                                     z_sd = scale_this(SI)) -> site_index_2
+site_index %>% mutate(z_mean = as.vector(scale(SI, center = TRUE, scale = FALSE)), z_sd = scale_this(SI)) -> site_index
 
-levels(site_index_2$kw) <- c("I", "II", "III", "IV", "V", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st")
+levels(site_index$kw) <- c("I", "II", "III", "IV", "V", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st")
 
-### join with area data ----
-site_index_area_unfiltered <- dplyr::left_join(site_index_2, area, by = "subplot_no") %>% na.omit()
-
-# main assumption is that on small areas <200m^2 is not enough trees to get proper measurments
-site_index_area_unfiltered %>% filter(area >= 200) -> site_index_area
-
-ggplot(site_index_area, aes(SI)) + geom_freqpoly(binwidth = 1)
-ggplot(site_index_area, aes(x = "", y = SI)) + geom_boxplot()
-ggplot(site_index_area, aes(sample = SI)) + stat_qq()
-ggplot(site_index_area, aes(SI)) + stat_ecdf(geom = "step")
-summary(site_index_area$SI, na.rm = TRUE)
+ggplot(site_index, aes(SI)) + geom_freqpoly(binwidth = 1)
+ggplot(site_index, aes(x = "", y = SI)) + geom_boxplot()
+ggplot(site_index, aes(sample = SI)) + stat_qq()
+ggplot(site_index, aes(SI)) + stat_ecdf(geom = "step")
+summary(site_index$SI, na.rm = TRUE)
 
 ggplot(data = site_index, aes(x = kw, y = SI)) + geom_boxplot()
 
-site_index_area_gps <- dplyr::left_join(site_index_area, gps_coord, by = "plot_no") %>% na.omit()
+site_index_gps <- dplyr::left_join(site_index, gps_coord, by = "plot_no") #%>% na.omit()
 
-coordinates(site_index_area_gps) <- ~ lon + lat #adding sptial relationship
-proj4string(site_index_area_gps) <- "+init=epsg:4326" #adding WGS84 projection
+coordinates(site_index_gps) <- ~ lon + lat #adding sptial relationship
+proj4string(site_index_gps) <- "+init=epsg:4326" #adding WGS84 projection
 
 # site index map plotting -----
 data(Europe, rivers)
 vistula <- subset(rivers, name == "Vistula")
 tm_shape(Europe, bbox = "Poland", projection="longlat", is.master = TRUE) + tm_borders() +
   tm_shape(vistula) + tm_lines(col = "steelblue", lwd = 4) +
-  tm_shape(site_index_area_gps) + tm_dots(col = "SI", size = 0.05, palette = "PiYG", n = 5, auto.palette.mapping = FALSE) +
+  tm_shape(site_index_gps) + tm_dots(col = "SI", size = 0.05, palette = "PiYG", n = 5, auto.palette.mapping = FALSE) +
   tm_style_white(legend.position = c("left", "bottom"))
 #
 
