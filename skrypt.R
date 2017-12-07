@@ -78,10 +78,7 @@ values <- tibble(
 trees %>%
   group_by(plot_no, subplot_no) %>%
   filter(species == "SO") %>%
-  summarise(
-    # n_d = add_count(d13), # liczba pierśnic na powierzchni próbnej
-    # n_h = n_distinct(h), # liczba pomierzonych wysokości
-    H = mean(h, na.rm = TRUE), # średnia wysokość ważona pierśnicą
+  summarise(H = mean(h, na.rm = TRUE), # średnia wysokość ważona pierśnicą
     wiek = mean(age), # wiek powierzchni
     SI = H * ((100 ^ values$b1) * ((wiek ^ values$b1) * (H - values$b3 + (((H - values$b3) ^ 2) + 
          (2 * values$b2 * H) / (wiek ^ values$b1)) ^ 0.5) + values$b2)) / ((wiek ^ values$b1) * 
@@ -91,8 +88,20 @@ trees %>%
   dplyr::mutate(kw = cut(wiek, breaks=seq(0, 260, by=20))) %>%
   arrange(desc(SI)) -> site_index_raw
 
+trees %>%
+  filter(species == "SO") %>%
+  na.omit(h) %>%
+  dplyr::mutate(H = h, wiek = age,
+    SI_raw = H * ((100 ^ values$b1) * ((wiek ^ values$b1) * (H - values$b3 + (((H - values$b3) ^ 2) + 
+         (2 * values$b2 * H) / (wiek ^ values$b1)) ^ 0.5) + values$b2)) / ((wiek ^ values$b1) * 
+         ((100 ^ values$b1) * (H - values$b3 + (((H - values$b3) ^ 2) + (2 * values$b2 * H) /
+         (wiek ^ values$b1)) ^ 0.5) + values$b2))) %>% 
+  group_by(plot_no, subplot_no) %>%
+  dplyr::summarise(SI = mean(SI_raw)) %>%
+  filter(complete.cases(SI)) -> site_index_raw_2
+
 # main assumption is that on small areas <200m^2 is not enough trees to get proper measurments
-site_index <- dplyr::inner_join(sites, site_index_raw, by = "subplot_no", suffix = c("", ".y")) %>% 
+site_index <- dplyr::inner_join(sites, site_index_raw_2, by = "subplot_no", suffix = c("", ".y")) %>% 
   dplyr::left_join(., area, by = "subplot_no") %>% 
   filter(area >= 200)
  
@@ -102,15 +111,15 @@ scale_this <- function(x){
 
 site_index %>% mutate(z_mean = as.vector(scale(SI, center = TRUE, scale = FALSE)), z_sd = scale_this(SI)) -> site_index
 
-levels(site_index$kw) <- c("I", "II", "III", "IV", "V", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st")
+# levels(site_index$kw) <- c("I", "II", "III", "IV", "V", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st")
 
-ggplot(site_index, aes(SI)) + geom_freqpoly(binwidth = 1)
-ggplot(site_index, aes(x = "", y = SI)) + geom_boxplot()
-ggplot(site_index, aes(sample = SI)) + stat_qq()
-ggplot(site_index, aes(SI)) + stat_ecdf(geom = "step")
-summary(site_index$SI, na.rm = TRUE)
+# ggplot(site_index, aes(SI)) + geom_freqpoly(binwidth = 1)
+# ggplot(site_index, aes(x = "", y = SI)) + geom_boxplot()
+# ggplot(site_index, aes(sample = SI)) + stat_qq()
+# ggplot(site_index, aes(SI)) + stat_ecdf(geom = "step")
+# summary(site_index$SI, na.rm = TRUE)
 
-ggplot(data = site_index, aes(x = kw, y = SI)) + geom_boxplot()
+# ggplot(data = site_index, aes(x = kw, y = SI)) + geom_boxplot()
 
 site_index_gps <- dplyr::left_join(site_index, gps_coord, by = "plot_no") #%>% na.omit()
 
@@ -119,12 +128,15 @@ proj4string(site_index_gps) <- "+init=epsg:4326" #adding WGS84 projection
 
 # site index map plotting -----
 data(Europe, rivers)
-vistula <- subset(rivers, name == "Vistula")
-tm_shape(Europe, bbox = "Poland", projection="longlat", is.master = TRUE) + tm_borders() +
-  tm_shape(vistula) + tm_lines(col = "steelblue", lwd = 4) +
-  tm_shape(site_index_gps) + tm_dots(col = "SI", size = 0.05, palette = "PiYG", n = 5, auto.palette.mapping = FALSE) +
-  tm_style_white(legend.position = c("left", "bottom"))
-#
+# vistula <- subset(rivers, name == "Vistula")
+plot_map <- function(shape, feature) {
+  tm_shape(Europe, bbox = "Poland", projection="longlat", is.master = TRUE) + tm_borders() +
+    # tm_shape(vistula) + tm_lines(col = "steelblue", lwd = 4) +
+    tm_shape(shape) + tm_dots(col = feature, size = 0.05, palette = "PiYG", n = 5, auto.palette.mapping = FALSE) +
+    tm_style_white(legend.position = c("left", "bottom"))
+}
+
+plot_map(site_index_gps, "SI")
 
 
 ### spatstat -------------------------------------------------------------------------------------------------------
@@ -132,26 +144,99 @@ library(spatstat)
 library(spdep)
 library(maptools)
 
-test2 <- dnearneigh(site_index_area_gps, 0, 1, longlat = TRUE)
+nghbr_1 <- dnearneigh(site_index_gps, 0, 1, longlat = TRUE)
+moran_1 <- localmoran(site_index_gps$SI, nb2listw(nghbr_1, zero.policy = TRUE), na.action = na.omit)
 
-test4 <- localmoran(site_index_area_gps$SI, nb2listw(test2, zero.policy = TRUE), na.action = na.omit)
+nghbr_5 <- dnearneigh(site_index_gps, 0, 5, longlat = TRUE)
+moran_5 <- localmoran(site_index_gps$SI, nb2listw(nghbr_5, zero.policy = TRUE), na.action = na.omit)
 
-site_index_area_gps@data <- data.frame(site_index_area_gps@data, as.data.frame(test4)) 
+site_index_gps@data <- data.frame(site_index_gps@data, as.data.frame(moran_1), as.data.frame(moran_5))
 
-tm_shape(Europe, bbox = "Poland", projection="longlat", is.master = TRUE) + tm_borders() +
-  tm_shape(vistula) + tm_lines(col = "steelblue", lwd = 4) +
-  tm_shape(site_index_area_gps) + tm_dots(col = "Ii", size = 0.05, palette = "PiYG", n = 5, auto.palette.mapping = FALSE) +
-  tm_style_white(legend.position = c("left", "bottom"))
+plot_map(site_index_gps, "SI")
+plot_map(site_index_gps, "z_mean")
+plot_map(site_index_gps, "z_sd")
+plot_map(site_index_gps, "Ii")
+plot_map(site_index_gps, "Ii.1")
+
+### raster WorldClim/envirem data --------------------------------------------------------------------------------
+library(raster)
+worldclim_data <- list.files(path = "D:\\Praca\\Badania\\Doktorat\\data\\WorldClim", pattern='\\.tif$', full.names = TRUE)
+worldclim <- raster::stack(worldclim_data)
+
+envirem_data <- list.files(path = "D:\\Praca\\Badania\\Doktorat\\data\\envirem", pattern='\\.tif$', full.names = TRUE)
+envirem <- raster::stack(envirem_data)
+
+data <- as_tibble(data.frame(coordinates(site_index_gps),
+                   site_index_gps$SI, 
+                   as.integer(site_index_gps$plot_age),
+                   raster::extract(worldclim, site_index_gps),
+                  raster::extract(envirem, site_index_gps)))
+names(data)[3:4] <- c("SI", "plot_age")
+data <- na.omit(data)
+summary(data)
+
+coordinates(data) <- ~ lon + lat
+proj4string(data) <- "+init=epsg:4326" #adding WGS84 projection
+
+linear_model <- lm(SI ~ wc2.0_bio_5m_04 + wc2.0_bio_5m_05 + wc2.0_bio_5m_12, data = data) #u Sochy R = 0,29
+linear_model <- lm(SI ~ ., data = data) #u Sochy R = 0,29
+summary(linear_model)
+
+data2 <- data
+data2[, "resid"] <- as.double(linear_model$residuals)
+coordinates(data2) <- ~ lon + lat
+proj4string(data2) <- "+init=epsg:4326" #adding WGS84 projection
+
+tm1 <- plot_map(site_index_gps, "SI")
+tm2 <- plot_map(data2, "resid")
+tmap_arrange(tm1, tm2, asp = NA)
+
+# library(gam)
+library(mgcv)
+xnam <- names(data2)[-c(1, 40)]
+(fmla <- as.formula(paste("SI ~ ", paste(xnam, collapse= "+"))))
+gam_model <- mgcv::gam(fmla, data = data) #u Sochy R = 0,29
+summary(gam_model)
+
+
+library(rpart)
+fit <- rpart(SI ~ plot_age + wc2.0_bio_5m_01 + wc2.0_bio_5m_02 + wc2.0_bio_5m_03 + 
+               wc2.0_bio_5m_04 + wc2.0_bio_5m_05 + wc2.0_bio_5m_06 + wc2.0_bio_5m_07 + 
+               wc2.0_bio_5m_08 + wc2.0_bio_5m_09 + wc2.0_bio_5m_10 + wc2.0_bio_5m_11 + 
+               wc2.0_bio_5m_12 + wc2.0_bio_5m_13 + wc2.0_bio_5m_14 + wc2.0_bio_5m_15 + 
+               wc2.0_bio_5m_16 + wc2.0_bio_5m_17 + wc2.0_bio_5m_18 + wc2.0_bio_5m_19 + 
+               current_30arcsec_annualPET + current_30arcsec_aridityIndexThornthwaite + 
+               current_30arcsec_climaticMoistureIndex + current_30arcsec_continentality + 
+               current_30arcsec_embergerQ + current_30arcsec_growingDegDays0 + 
+               current_30arcsec_growingDegDays5 + current_30arcsec_maxTempColdest + 
+               current_30arcsec_minTempWarmest + current_30arcsec_monthCountByTemp10 + 
+               current_30arcsec_PETColdestQuarter + current_30arcsec_PETDriestQuarter + 
+               current_30arcsec_PETseasonality + current_30arcsec_PETWarmestQuarter + 
+               current_30arcsec_PETWettestQuarter + current_30arcsec_thermicityIndex + 
+               current_30arcsec_topoWet + current_30arcsec_tri, method = "class", data = data)
+
+printcp(fit) # display the results 
+plotcp(fit) # visualize cross-validation results 
+summary(fit) # detailed summary of splits
+
+
+
+#### caret parralel ----------------------------------------------------------------------------------------
+library(parallel)
+library(doMC)
+library(caret)
+
+numCores <- detectCores()
+registerDoMc(cores = numCores)
+
+model_fit <- train(price ~ ., data=diamonds, method="glmnet", preProcess=c("center", "scale"), tuneLength=10)
 
 
 
 
 
 
-
-
-
-
+### -------------------------------------------------------------------------------------------------------------
 
 
 
@@ -163,19 +248,20 @@ write.table(wynikGPS, "resultGPS.txt", sep="\t", row.names=FALSE)
 
 # results for Poland -----
 
-wynik2 %>% summarise(srednia = mean(SI), 
+site_index %>% summarise(srednia = mean(SI), 
                     mediana = median(SI),
                     IQR = IQR(SI)) -> srednieSI
 
 # histogram dla Site Index
-ggplot(data = wynik, aes(x = SI)) +
-  geom_histogram(binwidth = 4) + 
+ggplot(data = site_index, aes(x = SI)) +
+  geom_histogram(binwidth = 2) + 
+  geom_freqpoly() +
   labs(x = "wskaźnik bonitacji (SI)", y = "częstość") +
   theme_bw() +
-  scale_x_continuous(limits = c(0, 60))
+  scale_x_continuous(limits = c(5, 45))
 
 # punkty dla Site Index
-ggplot(data = wynik2, aes(x = wiek, y = SI)) +
+ggplot(data = site_index, aes(x = wiek, y = SI)) +
   geom_point() + 
   labs(x = "wiek", y = "wskaźnik bonitacji (SI)") +
   theme_bw() +
@@ -183,13 +269,13 @@ ggplot(data = wynik2, aes(x = wiek, y = SI)) +
   scale_y_continuous(limits = c(0, 60))
 
 # histogram skumulowany
-h <- hist(wynik2$SI, breaks = seq(6, 58, by=4))
+h <- hist(site_index$SI, breaks = seq(6, 58, by=4))
 h$counts <- cumsum(h$counts)
 plot(h)
 
 # wynik w zależności od wieku
 # xlabs <- paste(levels(wynik$kw),"\n(N=",table(wynik$kw),")",sep="") # stara funkcja dopisująca etykiety
-ggplot(data = na.omit(wynik2), aes(x = kw, y = SI)) + 
+ggplot(data = na.omit(site_index), aes(x = kw, y = SI)) + 
   geom_boxplot(notch = TRUE) + 
   stat_n_text() +
   theme_bw() +
@@ -197,25 +283,25 @@ ggplot(data = na.omit(wynik2), aes(x = kw, y = SI)) +
   scale_y_continuous(limits = c(0, 60))
 
 # test Kruskala-Wallisa
-kruskal.test(SI ~ kw, wynik2)
+kruskal.test(SI ~ kw, site_index)
 
-pairwise.wilcox.test(wynik2$SI, wynik2$kw, p.adjust.method = "BH")
+pairwise.wilcox.test(site_index$SI, site_index$kw, p.adjust.method = "BH")
 dunnTest(SI ~ kw, data = wynik, method="bh")
 
 # results for regions -----
 
-wynik2 %>% 
+site_index %>% 
   group_by(kraina) %>%
   summarise(srednia = mean(SI),
             mediana = median(SI),
             IQR = IQR(SI)) -> srednieSIkrainami
 
 # histogram w podziale na krainy dla Site Index
-wynik2 %>%
+site_index %>%
   group_by(kraina) %>%
   summarise(n = paste("n =", length(kraina))) -> kraina.labs
 
-ggplot(data = wynik, aes(x = SI)) +
+ggplot(data = site_index, aes(x = SI)) +
   geom_histogram(binwidth = 4) +
   facet_wrap(~kraina) +
   geom_text(data = kraina.labs, aes(x=50, y=1250, label=n), colour="black", inherit.aes=FALSE, parse=FALSE) +
@@ -230,8 +316,8 @@ krainy2.shp <- sp::merge(krainy.shp, srednieSIkrainami, by="kraina")
 spplot(krainy2.shp, zcol="mediana")
 
 # wynik w zależności od krainy
-# xlabs <- paste(sort(unique(wynik$kraina)),"\n(N=",table(wynik$kraina),")",sep="") # stara funkcja dopisująca etykiety
-ggplot(data = wynik, aes(x = as.factor(kraina), y = SI)) + 
+# xlabs <- paste(sort(unique(site_index$kraina)),"\n(N=",table(site_index$kraina),")",sep="") # stara funkcja dopisująca etykiety
+ggplot(data = site_index, aes(x = as.factor(kraina), y = SI)) + 
   geom_boxplot(notch = TRUE) + 
   stat_n_text() +
   theme_bw() + 
@@ -239,16 +325,16 @@ ggplot(data = wynik, aes(x = as.factor(kraina), y = SI)) +
   scale_y_continuous(limits = c(0, 60))
 
 # test Kruskala-Wallisa
-kruskal.test(SI ~ kraina, wynik)
-pairwise.wilcox.test(wynik$SI, wynik$kraina, p.adjust.method = "BH") # test post-hoc
-dunnTest(SI ~ kraina, data = wynik, method="bh") # test post-hoc
+kruskal.test(SI ~ kraina, site_index)
+pairwise.wilcox.test(site_index$SI, site_index$kraina, p.adjust.method = "BH") # test post-hoc
+dunnTest(SI ~ kraina, data = site_index, method="bh") # test post-hoc
 
 # wykres w podziale na krainy w zależności od wieku
-wynik %>%
+site_index %>%
   group_by(kw) %>%
   summarise(n = paste("n =", length(kw))) -> kw.labs
 
-ggplot(data = wynik, aes(x = kraina, y = SI, group = kraina)) + 
+ggplot(data = site_index, aes(x = kraina, y = SI, group = kraina)) + 
   geom_boxplot(notch = TRUE, varwidth = TRUE)  + 
   geom_text(data = kw.labs, aes(x=7, y=60, label=n), colour="black", inherit.aes=FALSE, parse=FALSE) +
   # stat_n_text() + 
@@ -259,16 +345,16 @@ ggplot(data = wynik, aes(x = kraina, y = SI, group = kraina)) +
 
 ## results for Forest Inspectorates -----
 
-wynik %>% 
+site_index %>% 
   group_by(kodn) %>%
   summarise(mediana = median(SI)) -> srednieSInadles
 
-wynik %>% 
+site_index %>% 
   group_by(kw, kodn) %>%
   summarise(mediana = median(SI)) %>%
   tidyr::spread(key = kw, value = mediana) -> srednieSInadlesKW
 
-wynik2 %>% 
+site_index %>% 
   group_by(kw) %>%
   summarise(mediana = median(SI)) -> srednieSInadlesKW
 
@@ -287,18 +373,18 @@ spplot(nadles3.shp, zcol = "VI", at = seq(0, 60, by = 4))
 
 # results for habitats -----
 
-wynik %>% 
+site_index %>% 
   group_by(tsl) %>%
   summarise(srednia = mean(SI),
             mediana = median(SI),
             IQR = IQR(SI)) -> srednieSItsl
 
 # histogram w podziale na RDLP dla Site Index
-SI <- ggplot(data = wynik, aes(x = SI)) 
+SI <- ggplot(data = site_index, aes(x = SI)) 
 SI  + geom_histogram() + facet_wrap(~tsl)
 
 # wykres w podziale na tsl w zależności od wieku
-ggplot(data = subset(wynik, !is.na(tsl)), aes(x = wiek, y = SI)) + geom_point() + facet_wrap(~tsl)
+ggplot(data = subset(site_index, !is.na(tsl)), aes(x = wiek, y = SI)) + geom_point() + facet_wrap(~tsl)
 
 dane2 %>%
   filter(nr_podpow == 60083401)
