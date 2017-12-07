@@ -9,6 +9,13 @@ worldclim_data <- list.files(path = "D:\\Praca\\Badania\\Doktorat\\data\\WorldCl
 worldclim <- stack(worldclim_data)
 plot(worldclim[[5]])
 
+envirem_data <- list.files(path = "D:\\Praca\\Badania\\Doktorat\\data\\envirem", pattern='\\.tif$', full.names = TRUE)
+envirem <- stack(envirem_data)
+
+# precip <- nc_open("D:\\Praca\\Badania\\Doktorat\\data\\CHASE-PL\\PreciForMonths.nc")
+# print(precip)
+# r_precip <- stack("D:\\Praca\\Badania\\Doktorat\\data\\CHASE-PL\\PreciForMonths.nc", varname = "precipitation_amount")
+
 gps_coord <- read_tsv("Chris/resultGPS.txt")
 gps_coord <- gps_coord[-10927,] #one is out of climatic dataset range
 coordinates(gps_coord) <- ~ long + lat
@@ -18,13 +25,19 @@ proj4string(gps_coord) <- "+init=epsg:4326" #adding WGS84 projection
 
 data <- data.frame(coordinates(gps_coord),
                    gps_coord$SI, 
-                   raster::extract(worldclim, gps_coord))
+                   raster::extract(worldclim, gps_coord),
+                   raster::extract(envirem, gps_coord))
 names(data)[3] <- c("SI")
 
-pairs(data[,c(3:12)])
+old_data <- data
 
 coordinates(data) <- ~ long + lat
 proj4string(data) <- "+init=epsg:4326" #adding WGS84 projection
+
+
+for (i in names(old_data)[-c(1:3)]) {
+plot(old_data[[i]], old_data$SI)
+}
 
 linear_model <- lm(SI ~ wc2.0_bio_5m_04 + wc2.0_bio_5m_05 + wc2.0_bio_5m_12, data = data) #u Sochy R = 0,29
 summary(linear_model)
