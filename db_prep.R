@@ -5,6 +5,7 @@
 library(odbc)
 library(DBI)
 library(tidyverse)
+library(feather)
 
 # database connection -----
 testdb <- file.path("D:\\Praca\\Badania\\WISL\\WISL_10lat_SGGW") #determining database filepath
@@ -15,7 +16,7 @@ con <- dbConnect(odbc::odbc(), dsn = "WISL", encoding = "Windows-1250")#connecti
 sites_raw <- dbReadTable(con, "ADRES_POW") #site description
 trees_raw <- dbReadTable(con, "DRZEWA_OD_7") #tree measurments
 area_raw <- dbReadTable(con, "POW_A_B") #plot data
-gps_coord_raw <- dbReadTable(con, "PUNKTY_TRAKTU") # GPS coordinates
+gps_raw <- dbReadTable(con, "PUNKTY_TRAKTU") # GPS coordinates
 
 # data wrangling -----
 # I am querying for area of sample plot needed later
@@ -26,12 +27,12 @@ area_raw %>% # raw data loading to pipe
          area = POW_A) -> area # creating a new tibble
 
 # I need doubles for later use of Spatial Data 
-gps_coord_raw %>%
+gps_raw %>%
   as_tibble(.) %>%
   type_convert(.) %>%
   dplyr::select(plot_no = NR_PUNKTU,
          lat = SZEROKOSC,
-         lon = DLUGOSC) -> gps_coord
+         lon = DLUGOSC) -> gps
 
 # I am loading site description data
 sites_raw %>%
@@ -75,15 +76,14 @@ trees_raw %>%
 # sites_area <- dplyr::left_join(sites, plot_a, by = "nr_podpow") # joining sample plot area to site description
 # sites_area_gps <- dplyr::left_join(sites_area, gps_coord, by = "nr_punktu") # adding GPS position data
 
-# exporting data ----- 
-write_tsv(sites, paste0(getwd(), "/data/sites.txt")) # saving tabular format for later analysis
-write_tsv(trees, paste0(getwd(), "/data/trees.txt"))
-write_tsv(area, paste0(getwd(), "/data/area.txt"))
-write_tsv(gps_coord, paste0(getwd(), "/data/gps_coord.txt"))
+# # exporting data ----- 
+# write_tsv(sites, paste0(getwd(), "/data/sites.txt")) # saving tabular format for later analysis
+# write_tsv(trees, paste0(getwd(), "/data/trees.txt"))
+# write_tsv(area, paste0(getwd(), "/data/area.txt"))
+# write_tsv(gps_coord, paste0(getwd(), "/data/gps_coord.txt"))
 
-library(feather)
-path <- "my_data.feather"
-write_feather(df, path)
-write_feather(sites, paste0(getwd(), "/data/sites"))
-
+write_feather(sites, paste0(getwd(), "/data/WISL/sites.feather"))
+write_feather(trees, paste0(getwd(), "/data/WISL/trees.feather"))
+write_feather(area, paste0(getwd(), "/data/WISL/area.feather"))
+write_feather(gps, paste0(getwd(), "/data/WISL/gps.feather"))
 
