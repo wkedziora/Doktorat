@@ -37,21 +37,23 @@ gps_raw %>%
 # I am loading site description data
 sites_raw %>%
   as_tibble(.) %>%
-  dplyr::rename_all(tolower) %>% # changing all columns to lower case
-  dplyr::select(plot_no = nr_punktu,
-         cycle_no = nr_cyklu,
-         subplot_no = nr_podpow,
-         cycle_year = rok_w_cyklu,
-         reigon = kraina,
-         plot_species = gat_pan_pr,
-         plot_age = wiek_pan_pr,
-         vertical = b_pion_pow_pr, 
-         habitat = tsl, 
-         habitat_style = okr_tsl, 
-         habitat_status = stan_siedl) %>%
+  dplyr::select(plot_no = NR_PUNKTU,
+         cycle_no = NR_CYKLU,
+         subplot_no = NR_PODPOW,
+         cycle_year = ROK_W_CYKLU,
+         region = KRAINA,
+         plot_species = GAT_PAN_PR,
+         plot_age = WIEK_PAN_PR,
+         vertical = B_PION_POW_PR, 
+         habitat = TSL, 
+         habitat_source = OKR_TSL, 
+         habitat_status = STAN_SIEDL) %>%
   dplyr::filter(cycle_no == 2, plot_species == "SO") %>%
   dplyr::select(-cycle_no) %>%
-  type_convert(., col_types = cols_only(plot_species = col_factor(levels = NULL))) -> sites # converting column to factor
+  type_convert(col_types = cols_only(plot_species = col_factor(levels = NULL))) %>%
+  mutate(habitat = factor(habitat),
+         habitat_source = factor(habitat_source),
+         habitat_status = factor(habitat_status)) -> sites # converting column to factor
 
 # loading tree data for the next script
 trees_raw %>%
