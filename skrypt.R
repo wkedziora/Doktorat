@@ -6,65 +6,53 @@ library(sp)
 # library(FSA)
 library(RColorBrewer)
 # library(EnvStats)
+library(feather)
 
 # data loading -----
-
-# maybe feather? df <- read_feather(paste0(getwd(), "/data/sites"))
-
-sites_loading <- cols(plot_no = col_integer(), # column classes for proper data loading  
-                      subplot_no = col_integer(),
-                      cycle_year = col_factor(levels = NULL),
-                      region = col_factor(levels = NULL),
-                      plot_species = col_factor(levels = NULL),
-                      plot_age = col_factor(levels = NULL),
-                      vertical = col_factor(levels = NULL),
-                      habitat = col_factor(levels = NULL),
-                      habitat_style = col_factor(levels = NULL),
-                      habitat_status = col_factor(levels = NULL)
-)
-sites <- read_tsv("data/sites.txt", col_types = sites_loading)
-area <- read_tsv("data/area.txt")
-gps_coord <- read_tsv("data/gps_coord.txt")
+sites <- read_feather(paste0(getwd(), "/data/WISL/sites.feather"))
+trees <- read_feather(paste0(getwd(), "/data/WISL/trees.feather"))
+area <- read_feather(paste0(getwd(), "/data/WISL/area.feather"))
+gps <- read_feather(paste0(getwd(), "/data/WISL/gps.feather"))
 
 litography_50k_loading <- cols(tsl = col_factor(levels = NULL), 
-                                ukszt_ter = col_factor(levels = NULL)) 
+                               ukszt_ter = col_factor(levels = NULL),
+                               litography = col_factor(levels = NULL)) 
 litography_50k <- read_tsv("data/litography_50k.txt", col_types = litography_50k_loading)
 
 litography_500k_loading <- cols(tsl = col_factor(levels = NULL), 
-                      ukszt_ter = col_factor(levels = NULL)) 
+                                ukszt_ter = col_factor(levels = NULL),
+                                litography = col_factor(levels = NULL),
+                                litography_500k = col_factor(levels = NULL)) 
 litography_500k <- read_tsv("data/litography_500k.txt", col_types = litography_500k_loading)
 
-trees_loading <- cols(species = col_factor(levels = NULL)) 
-trees <- read_tsv("data/trees.txt", col_types = trees_loading)
-
 # data wrangling -----
-ggplot(trees, aes(h)) + geom_freqpoly(binwidth = 1)
-ggplot(trees, aes(x = "", y = h)) + geom_boxplot() + coord_flip()
-ggplot(trees, aes(sample = h)) + stat_qq()
-ggplot(trees, aes(h)) + stat_ecdf(geom = "step")
-summary(trees$h, na.rm = TRUE)
+# ggplot(trees, aes(h)) + geom_freqpoly(binwidth = 1)
+# ggplot(trees, aes(x = "", y = h)) + geom_boxplot() + coord_flip()
+# ggplot(trees, aes(sample = h)) + stat_qq()
+# ggplot(trees, aes(h)) + stat_ecdf(geom = "step")
+# summary(trees$h, na.rm = TRUE)
 
 # no of sample plots with different no of h measured
-trees %>%
-  filter(!is.na(h)) %>%
-  group_by(subplot_no) %>%
-  summarise(n = n_distinct(h)) %>%
-  group_by(n) %>%
-  summarise(z = n_distinct(subplot_no)) %>%
-  ggplot(aes(n, z)) +
-  geom_bar(stat = "identity")
-
-trees %>%
-  group_by(subplot_no) %>%
-  filter(!is.na(dbh), species == "SO") %>%
-  left_join(., area, by = "subplot_no") %>%
-  filter(!is.na(h)) %>%
-  group_by(subplot_no) %>%
-  summarise(n = n_distinct(h)) %>%
-  group_by(n) %>%
-  summarise(z = n_distinct(subplot_no)) %>%
-  ggplot(aes(n, z)) +
-  geom_bar(stat = "identity")
+# trees %>%
+#   filter(!is.na(h)) %>%
+#   group_by(subplot_no) %>%
+#   summarise(n = n_distinct(h)) %>%
+#   group_by(n) %>%
+#   summarise(z = n_distinct(subplot_no)) %>%
+#   ggplot(aes(n, z)) +
+#   geom_bar(stat = "identity")
+# 
+# trees %>%
+#   group_by(subplot_no) %>%
+#   filter(!is.na(dbh), species == "SO") %>%
+#   left_join(., area, by = "subplot_no") %>%
+#   filter(!is.na(h)) %>%
+#   group_by(subplot_no) %>%
+#   summarise(n = n_distinct(h)) %>%
+#   group_by(n) %>%
+#   summarise(z = n_distinct(subplot_no)) %>%
+#   ggplot(aes(n, z)) +
+#   geom_bar(stat = "identity")
 
 ### Site Index calculations ----------------
 
@@ -75,18 +63,18 @@ values <- tibble(
 )
 
 # main assumption is that I only count in Pine trees
-trees %>%
-  group_by(plot_no, subplot_no) %>%
-  filter(species == "SO") %>%
-  summarise(H = mean(h, na.rm = TRUE), # średnia wysokość ważona pierśnicą
-    wiek = mean(age), # wiek powierzchni
-    SI = H * ((100 ^ values$b1) * ((wiek ^ values$b1) * (H - values$b3 + (((H - values$b3) ^ 2) + 
-         (2 * values$b2 * H) / (wiek ^ values$b1)) ^ 0.5) + values$b2)) / ((wiek ^ values$b1) * 
-         ((100 ^ values$b1) * (H - values$b3 + (((H - values$b3) ^ 2) + (2 * values$b2 * H) /
-         (wiek ^ values$b1)) ^ 0.5) + values$b2))) %>% 
-  filter(complete.cases(SI)) %>% # muszę w jakiś sposób usunąć wpisy gdzie SO nie jest panująca
-  dplyr::mutate(kw = cut(wiek, breaks=seq(0, 260, by=20))) %>%
-  arrange(desc(SI)) -> site_index_raw
+# trees %>%
+#   group_by(plot_no, subplot_no) %>%
+#   filter(species == "SO") %>%
+#   summarise(H = mean(h, na.rm = TRUE), # średnia wysokość ważona pierśnicą
+#     wiek = mean(age), # wiek powierzchni
+#     SI = H * ((100 ^ values$b1) * ((wiek ^ values$b1) * (H - values$b3 + (((H - values$b3) ^ 2) + 
+#          (2 * values$b2 * H) / (wiek ^ values$b1)) ^ 0.5) + values$b2)) / ((wiek ^ values$b1) * 
+#          ((100 ^ values$b1) * (H - values$b3 + (((H - values$b3) ^ 2) + (2 * values$b2 * H) /
+#          (wiek ^ values$b1)) ^ 0.5) + values$b2))) %>% 
+#   filter(complete.cases(SI)) %>% # muszę w jakiś sposób usunąć wpisy gdzie SO nie jest panująca
+#   dplyr::mutate(kw = cut(wiek, breaks=seq(0, 260, by=20))) %>%
+#   arrange(desc(SI)) -> site_index_raw
 
 trees %>%
   filter(species == "SO") %>%
@@ -121,7 +109,7 @@ site_index %>% mutate(z_mean = as.vector(scale(SI, center = TRUE, scale = FALSE)
 
 # ggplot(data = site_index, aes(x = kw, y = SI)) + geom_boxplot()
 
-site_index_gps <- dplyr::left_join(site_index, gps_coord, by = "plot_no") #%>% na.omit()
+site_index_gps <- dplyr::left_join(site_index, gps, by = "plot_no") #%>% na.omit()
 
 coordinates(site_index_gps) <- ~ lon + lat #adding sptial relationship
 proj4string(site_index_gps) <- "+init=epsg:4326" #adding WGS84 projection
@@ -167,22 +155,22 @@ envirem_data <- list.files(path = "D:\\Praca\\Badania\\Doktorat\\data\\envirem",
 envirem <- raster::stack(envirem_data)
 
 data <- as_tibble(data.frame(coordinates(site_index_gps),
-                   site_index_gps$SI, 
+                   site_index_gps@data[,1:15], 
                    as.integer(site_index_gps$plot_age),
                    raster::extract(worldclim, site_index_gps),
                   raster::extract(envirem, site_index_gps)))
-names(data)[3:4] <- c("SI", "plot_age")
-data <- na.omit(data)
+# names(data)[3:4] <- c("SI", "plot_age")
+# data <- data[na.omit(data$current_30arcsec_annualPET)]
 summary(data)
 
 coordinates(data) <- ~ lon + lat
 proj4string(data) <- "+init=epsg:4326" #adding WGS84 projection
 
-linear_model <- lm(SI ~ wc2.0_bio_5m_04 + wc2.0_bio_5m_05 + wc2.0_bio_5m_12, data = data) #u Sochy R = 0,29
-linear_model <- lm(SI ~ ., data = data) #u Sochy R = 0,29
+linear_model <- lm(SI ~ wc2.0_bio_5m_04 + wc2.0_bio_5m_05 + wc2.0_bio_5m_12 + habitat, data = data) #u Sochy R = 0,29
+# linear_model <- lm(SI ~ ., data = data) #u Sochy R = 0,29
 summary(linear_model)
 
-data2 <- data
+data2 <- as.tibble(data@data) # %>% na.omit()
 data2[, "resid"] <- as.double(linear_model$residuals)
 coordinates(data2) <- ~ lon + lat
 proj4string(data2) <- "+init=epsg:4326" #adding WGS84 projection
@@ -193,27 +181,17 @@ tmap_arrange(tm1, tm2, asp = NA)
 
 # library(gam)
 library(mgcv)
-xnam <- names(data2)[-c(1, 40)]
-(fmla <- as.formula(paste("SI ~ ", paste(xnam, collapse= "+"))))
-gam_model <- mgcv::gam(fmla, data = data) #u Sochy R = 0,29
+# xnam <- names(data2)[-c(1, 40)]
+# (fmla <- as.formula(paste("SI ~ ", paste(xnam, collapse= "+"))))
+# gam_model <- mgcv::gam(fmla, data = data) #u Sochy R = 0,29
+gam_model <- mgcv::gam(SI ~ wc2.0_bio_5m_04 + wc2.0_bio_5m_05 + wc2.0_bio_5m_12 + habitat, data = data) #u Sochy R = 0,29
 summary(gam_model)
 
-
+### decision tree ----------------------------------------------------------------------------------------------
+# out of memory!
 library(rpart)
-fit <- rpart(SI ~ plot_age + wc2.0_bio_5m_01 + wc2.0_bio_5m_02 + wc2.0_bio_5m_03 + 
-               wc2.0_bio_5m_04 + wc2.0_bio_5m_05 + wc2.0_bio_5m_06 + wc2.0_bio_5m_07 + 
-               wc2.0_bio_5m_08 + wc2.0_bio_5m_09 + wc2.0_bio_5m_10 + wc2.0_bio_5m_11 + 
-               wc2.0_bio_5m_12 + wc2.0_bio_5m_13 + wc2.0_bio_5m_14 + wc2.0_bio_5m_15 + 
-               wc2.0_bio_5m_16 + wc2.0_bio_5m_17 + wc2.0_bio_5m_18 + wc2.0_bio_5m_19 + 
-               current_30arcsec_annualPET + current_30arcsec_aridityIndexThornthwaite + 
-               current_30arcsec_climaticMoistureIndex + current_30arcsec_continentality + 
-               current_30arcsec_embergerQ + current_30arcsec_growingDegDays0 + 
-               current_30arcsec_growingDegDays5 + current_30arcsec_maxTempColdest + 
-               current_30arcsec_minTempWarmest + current_30arcsec_monthCountByTemp10 + 
-               current_30arcsec_PETColdestQuarter + current_30arcsec_PETDriestQuarter + 
-               current_30arcsec_PETseasonality + current_30arcsec_PETWarmestQuarter + 
-               current_30arcsec_PETWettestQuarter + current_30arcsec_thermicityIndex + 
-               current_30arcsec_topoWet + current_30arcsec_tri, method = "class", data = data)
+fit <- rpart(SI ~ wc2.0_bio_5m_04 + wc2.0_bio_5m_05 + wc2.0_bio_5m_12 + habitat, method = "class", data = data)
+fit <- rpart(SI ~ habitat, method = "class", data = data)
 
 printcp(fit) # display the results 
 plotcp(fit) # visualize cross-validation results 
@@ -222,6 +200,7 @@ summary(fit) # detailed summary of splits
 
 
 #### caret parralel ----------------------------------------------------------------------------------------
+# not supporting current R version (3.4.3)
 library(parallel)
 library(doMC)
 library(caret)
@@ -229,7 +208,7 @@ library(caret)
 numCores <- detectCores()
 registerDoMc(cores = numCores)
 
-model_fit <- train(price ~ ., data=diamonds, method="glmnet", preProcess=c("center", "scale"), tuneLength=10)
+model_fit <- train(SI ~ habitat, data=data, method="glmnet", preProcess=c("center", "scale"), tuneLength=10)
 
 
 
