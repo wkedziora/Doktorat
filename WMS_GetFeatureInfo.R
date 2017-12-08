@@ -4,6 +4,7 @@ library(httr)
 library(tidyverse)
 library(rvest)
 library(xml2)
+library(feather)
 
 # bulding query -----
 #setting query parameters, all have to be provided (empty for styles means default)
@@ -62,4 +63,5 @@ gps_coord$litography_500k <- factor(gps_coord$litography_500k)
 summary(gps_coord)
 
 # saving output -----
-write_tsv(gps_coord, "litography_500k.txt")
+# write_tsv(gps_coord, "litography_500k.txt")
+write_feather(gps_coord, paste0(getwd(), "/data/WMS/litography_500k.feather"))
