@@ -7,42 +7,88 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(tmap)
+library(sp)
+library(RColorBrewer)
+library(spatstat)
+library(spdep)
+library(maptools)
+library(feather)
 ```
 
-## R Markdown
+#### Data loading  
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+Varibles that need explanation (rest should be self-explanatory):  
+    * vertical = vertical structure of the stand, factor  
+    * habitat = fertility + water available, factor  
+    * habitat_source = source of data, factor  
+    * SI = calculated SI  
+    * area = area of sample plot (younger 2a, older 4 or 5a)  
+    * z_mean = z-score centered around mean  
+    * z_sd = z-score centered and scaled
+    * BIO1 = Annual Mean Temperature
+    * BIO2 = Mean Diurnal Range (Mean of monthly (max temp - min temp))  
+    * BIO3 = Isothermality (BIO2/BIO7) (x100) 
+    * BIO4 = Temperature Seasonality (standard deviation x100)  
+    * BIO5 = Max Temperature of Warmest Month  
+    * BIO6 = Min Temperature of Coldest Month  
+    * BIO7 = Temperature Annual Range (BIO5-BIO6)  
+    * BIO8 = Mean Temperature of Wettest Quarter  
+    * BIO9 = Mean Temperature of Driest Quarter  
+    * BIO10 = Mean Temperature of Warmest Quarter  
+    * BIO11 = Mean Temperature of Coldest Quarter  
+    * BIO12 = Annual Precipitation  
+    * BIO13 = Precipitation of Wettest Month  
+    * BIO14 = Precipitation of Driest Month  
+    * BIO15 = Precipitation Seasonality (Coefficient of Variation)  
+    * BIO16 = Precipitation of Wettest Quarter  
+    * BIO17 = Precipitation of Driest Quarter  
+    * BIO18 = Precipitation of Warmest Quarter  
+    * BIO19 = Precipitation of Coldest Quarter  
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r site_index_environ}
+site_index_environ <- read_feather(paste0(getwd(), "/data/WISL/site_index_environ.feather"))
+summary(site_index_environ)
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r plot_map}
+plot_map <- function(shape, feature) {
+  tm_shape(shape) + tm_dots(col = feature, size = 0.02, palette = "PiYG", border.lwd = NA) +
+    tm_style_white(legend.position = c("left", "bottom")) +
+    tm_view(basemaps = "CartoDB.Positron", alpha=0.5)
+}
 ```
 
-BIO1 = Annual Mean Temperature
-BIO2 = Mean Diurnal Range (Mean of monthly (max temp - min temp))
-BIO3 = Isothermality (BIO2/BIO7) (* 100)
-BIO4 = Temperature Seasonality (standard deviation *100)
-BIO5 = Max Temperature of Warmest Month
-BIO6 = Min Temperature of Coldest Month
-BIO7 = Temperature Annual Range (BIO5-BIO6)
-BIO8 = Mean Temperature of Wettest Quarter
-BIO9 = Mean Temperature of Driest Quarter
-BIO10 = Mean Temperature of Warmest Quarter
-BIO11 = Mean Temperature of Coldest Quarter
-BIO12 = Annual Precipitation
-BIO13 = Precipitation of Wettest Month
-BIO14 = Precipitation of Driest Month
-BIO15 = Precipitation Seasonality (Coefficient of Variation)
-BIO16 = Precipitation of Wettest Quarter
-BIO17 = Precipitation of Driest Quarter
-BIO18 = Precipitation of Warmest Quarter
-BIO19 = Precipitation of Coldest Quarter
+```{r models_calculation}
+coordinates(site_index_environ) <- ~ lon + lat
+proj4string(site_index_environ) <- "+init=epsg:4326" #adding WGS84 projection
+
+linear_model <- lm(SI ~ bio_04 + bio_05 + bio_12 + habitat, data = site_index_environ)
+summary(linear_model)
+
+library(mgcv)
+gam_model <- mgcv::gam(SI ~ s(bio_04) + s(bio_05) + s(bio_12) + habitat, data = site_index_environ)
+summary(gam_model)
+
+data_resid <- data.frame(coordinates(site_index_environ), site_index_environ@data)
+data_resid <- data_resid[complete.cases(data_resid$habitat),]
+data_resid <- data_resid[complete.cases(data_resid$bio_04),]
+data_resid[, "resid_lm"] <- as.double(linear_model$residuals)
+data_resid[, "resid_gam"] <- as.double(gam_model$residuals)
+coordinates(data_resid) <- ~ lon + lat
+proj4string(data_resid) <- "+init=epsg:4326" #adding WGS84 projection
+
+resid1 <- plot_map(data_resid, "resid_lm")
+resid2 <- plot_map(data_resid, "resid_gam")
+tmap_mode("plot")
+tmap_arrange(resid1, resid2, asp = NA)
+tmap_mode("view")
+tmap_arrange(resid1, resid2, asp = NA)
+```
+
+Around 20% of variance explained is a good starting point for next steps.
+
+Ihavetried to calculate GWR. Bandwidth with CV was estabilished at 6.10312770599552, but then it was quite hard to get the results...
+
