@@ -90,6 +90,9 @@ scale_this <- function(x){
 
 site_index %>% mutate(z_mean = as.vector(scale(SI, center = TRUE, scale = FALSE)), z_sd = scale_this(SI)) -> site_index
 
+### backup write site_index ------------------------------------------------------------------------------------
+# write_feather(site_index, paste0(getwd(), "/data/WISL/site_index.feather"))
+
 # levels(site_index$kw) <- c("I", "II", "III", "IV", "V", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st")
 
 # ggplot(site_index, aes(SI)) + geom_freqpoly(binwidth = 1)
@@ -101,6 +104,10 @@ site_index %>% mutate(z_mean = as.vector(scale(SI, center = TRUE, scale = FALSE)
 # ggplot(data = site_index, aes(x = kw, y = SI)) + geom_boxplot()
 
 site_index_gps <- dplyr::left_join(site_index, gps, by = "plot_no") #%>% na.omit()
+
+### backup write/load site_index_gps ---------------------------------------------------------------------------------
+# write_feather(site_index_gps, paste0(getwd(), "/data/WISL/site_index_gps.feather"))
+# site_index_gps <- read_feather(paste0(getwd(), "/data/WISL/site_index_gps.feather"))
 
 coordinates(site_index_gps) <- ~ lon + lat #adding sptial relationship
 proj4string(site_index_gps) <- "+init=epsg:4326" #adding WGS84 projection
@@ -123,19 +130,21 @@ library(spatstat)
 library(spdep)
 library(maptools)
 
-nghbr_1 <- dnearneigh(site_index_gps, 0, 1, longlat = TRUE)
-moran_1 <- localmoran(site_index_gps$SI, nb2listw(nghbr_1, zero.policy = TRUE), na.action = na.omit)
+site_index_moran <- site_index_gps
 
-nghbr_5 <- dnearneigh(site_index_gps, 0, 5, longlat = TRUE)
-moran_5 <- localmoran(site_index_gps$SI, nb2listw(nghbr_5, zero.policy = TRUE), na.action = na.omit)
+nghbr_1 <- dnearneigh(site_index_moran, 0, 1, longlat = TRUE)
+moran_1 <- localmoran(site_index_moran$SI, nb2listw(nghbr_1, zero.policy = TRUE), na.action = na.omit)
 
-site_index_gps@data <- data.frame(site_index_gps@data, as.data.frame(moran_1), as.data.frame(moran_5))
+nghbr_5 <- dnearneigh(site_index_moran, 0, 5, longlat = TRUE)
+moran_5 <- localmoran(site_index_moran$SI, nb2listw(nghbr_5, zero.policy = TRUE), na.action = na.omit)
 
-plot_map(site_index_gps, "SI")
-plot_map(site_index_gps, "z_mean")
-plot_map(site_index_gps, "z_sd")
-plot_map(site_index_gps, "Ii")
-plot_map(site_index_gps, "Ii.1")
+site_index_moran@data <- data.frame(site_index_moran@data, as.data.frame(moran_1), as.data.frame(moran_5))
+
+plot_map(site_index_moran, "SI")
+plot_map(site_index_moran, "z_mean")
+plot_map(site_index_moran, "z_sd")
+plot_map(site_index_moran, "Ii")
+plot_map(site_index_moran, "Ii.1")
 
 ### raster WorldClim/envirem data --------------------------------------------------------------------------------
 library(raster)
@@ -145,71 +154,61 @@ worldclim <- raster::stack(worldclim_data)
 envirem_data <- list.files(path = "D:\\Praca\\Badania\\Doktorat\\data\\envirem", pattern='\\.tif$', full.names = TRUE)
 envirem <- raster::stack(envirem_data)
 
-data <- as_tibble(data.frame(coordinates(site_index_gps),
-                   site_index_gps@data[,1:15], 
-                   as.integer(site_index_gps$plot_age),
-                   raster::extract(worldclim, site_index_gps),
-                  raster::extract(envirem, site_index_gps)))
-# names(data)[3:4] <- c("SI", "plot_age")
-# data <- data[na.omit(data$current_30arcsec_annualPET)]
-summary(data)
+site_index_environ <- as_tibble(data.frame(coordinates(site_index_gps),
+                                          site_index_gps@data[,c(1:9, 11:15)], 
+                                          raster::extract(worldclim, site_index_gps),
+                                          raster::extract(envirem, site_index_gps)))
+summary(site_index_environ)
 
-coordinates(data) <- ~ lon + lat
-proj4string(data) <- "+init=epsg:4326" #adding WGS84 projection
+### backup write site_index_environ ---------------------------------------------------------------------------------
+# write_feather(site_index_environ, paste0(getwd(), "/data/WISL/site_index_environ.feather"))
+# site_index_environ <- read_feather(paste0(getwd(), "/data/WISL/site_index_environ.feather"))
 
-linear_model <- lm(SI ~ wc2.0_bio_5m_04 + wc2.0_bio_5m_05 + wc2.0_bio_5m_12 + habitat, data = data) #u Sochy R = 0,29
-# linear_model <- lm(SI ~ ., data = data) #u Sochy R = 0,29
+coordinates(site_index_environ) <- ~ lon + lat
+proj4string(site_index_environ) <- "+init=epsg:4326" #adding WGS84 projection
+
+linear_model <- lm(SI ~ bio_04 + bio_05 + bio_12 + habitat, data = site_index_environ) #u Sochy R = 0,29
+# linear_model <- lm(SI ~ ., data = site_index_environ) #u Sochy R = 0,29
 summary(linear_model)
 
-data2 <- as.tibble(data@data) # %>% na.omit()
-data2[, "resid"] <- as.double(linear_model$residuals)
-coordinates(data2) <- ~ lon + lat
-proj4string(data2) <- "+init=epsg:4326" #adding WGS84 projection
-
-tm1 <- plot_map(site_index_gps, "SI")
-tm2 <- plot_map(data2, "resid")
-tmap_arrange(tm1, tm2, asp = NA)
-
-# library(gam)
 library(mgcv)
-# xnam <- names(data2)[-c(1, 40)]
-# (fmla <- as.formula(paste("SI ~ ", paste(xnam, collapse= "+"))))
-# gam_model <- mgcv::gam(fmla, data = data) #u Sochy R = 0,29
-gam_model <- mgcv::gam(SI ~ wc2.0_bio_5m_04 + wc2.0_bio_5m_05 + wc2.0_bio_5m_12 + habitat, data = data) #u Sochy R = 0,29
+gam_model <- mgcv::gam(SI ~ s(bio_04) + s(bio_05) + s(bio_12) + habitat, data = site_index_environ) #u Sochy R = 0,29
 summary(gam_model)
 
-### decision tree ----------------------------------------------------------------------------------------------
-# out of memory!
-library(rpart)
-fit <- rpart(SI ~ wc2.0_bio_5m_04 + wc2.0_bio_5m_05 + wc2.0_bio_5m_12 + habitat, method = "class", data = data)
-fit <- rpart(SI ~ habitat, method = "class", data = data)
+data_resid <- data.frame(coordinates(site_index_environ), site_index_environ@data)
+data_resid <- data_resid[complete.cases(data_resid$habitat),]
+data_resid <- data_resid[complete.cases(data_resid$bio_04),]
+data_resid[, "resid_lm"] <- as.double(linear_model$residuals)
+data_resid[, "resid_gam"] <- as.double(gam_model$residuals)
+coordinates(data_resid) <- ~ lon + lat
+proj4string(data_resid) <- "+init=epsg:4326" #adding WGS84 projection
 
-printcp(fit) # display the results 
-plotcp(fit) # visualize cross-validation results 
-summary(fit) # detailed summary of splits
+resid1 <- plot_map(data_resid, "resid_lm")
+resid2 <- plot_map(data_resid, "resid_gam")
+tmap_arrange(resid1, resid2, asp = NA)
+
+### GWmodel -------------------------------------------------------------------------------------------------------------
+library(GWmodel)
+
+data_gw <- as_tibble(data.frame(coordinates(data_resid), data_resid@data)) %>% dplyr::select(lon, lat, SI, habitat, bio_04)
+coordinates(data_gw) <- ~ lon + lat
+proj4string(data_gw) <- "+init=epsg:4326" #adding WGS84 projection
+
+## if projected CRS is needed
+data_gw_2180 <- spTransform(data_gw, "+init=epsg:2180")
+
+# bandwidth <- bw.gwr(SI ~ bio_04, data = data_gw, longlat = TRUE, kernel = "gaussian", approach = "AICc")
+bandwidth <- bw.gwr(SI ~ bio_04, data = data_gw_2180, kernel = "gaussian", approach = "AICc")
+# bandwidth <- 6.10312770599552 #longlat
+
+dist <- gw.dist(dp.locat = coordinates(data_gw_2180))
+
+gmr <- gwr.basic(SI ~ bio_04, data = data_gw_2180, bw = bandwidth, kernel = "gaussian", dMat = dist)
 
 
 
-#### caret parralel ----------------------------------------------------------------------------------------
-# not supporting current R version (3.4.3)
-library(parallel)
-library(doMC)
-library(caret)
 
-numCores <- detectCores()
-registerDoMc(cores = numCores)
-
-model_fit <- train(SI ~ habitat, data=data, method="glmnet", preProcess=c("center", "scale"), tuneLength=10)
-
-
-
-
-
-
-### -------------------------------------------------------------------------------------------------------------
-
-
-
+### old things -------------------------------------------------------------------------------------------------------------
 
   wynikGPS %>%
   select(point_no = nr_punktu, subpoint_no = nr_podpow, lat = szerokosc, long = dlugosc, SI, tsl, ukszt_ter) -> wynikGPS
