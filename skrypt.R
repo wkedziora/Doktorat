@@ -13,17 +13,8 @@ sites <- read_feather(paste0(getwd(), "/data/WISL/sites.feather"))
 trees <- read_feather(paste0(getwd(), "/data/WISL/trees.feather"))
 area <- read_feather(paste0(getwd(), "/data/WISL/area.feather"))
 gps <- read_feather(paste0(getwd(), "/data/WISL/gps.feather"))
-
-litography_50k_loading <- cols(tsl = col_factor(levels = NULL), 
-                               ukszt_ter = col_factor(levels = NULL),
-                               litography = col_factor(levels = NULL)) 
-litography_50k <- read_tsv("data/litography_50k.txt", col_types = litography_50k_loading)
-
-litography_500k_loading <- cols(tsl = col_factor(levels = NULL), 
-                                ukszt_ter = col_factor(levels = NULL),
-                                litography = col_factor(levels = NULL),
-                                litography_500k = col_factor(levels = NULL)) 
-litography_500k <- read_tsv("data/litography_500k.txt", col_types = litography_500k_loading)
+litography_500k <- read_feather(paste0(getwd(), "/data/WMS/litography_500k.feather"))
+litography_50k <- read_feather(paste0(getwd(), "/data/WMS/litography_50k.feather"))
 
 # data wrangling -----
 # ggplot(trees, aes(h)) + geom_freqpoly(binwidth = 1)
