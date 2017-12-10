@@ -190,7 +190,7 @@ tmap_arrange(resid1, resid2, asp = NA)
 ### GWmodel -------------------------------------------------------------------------------------------------------------
 library(GWmodel)
 
-data_gw <- as_tibble(data.frame(coordinates(data_resid), data_resid@data)) %>% dplyr::select(lon, lat, SI, habitat, bio_04)
+data_gw <- as_tibble(data.frame(coordinates(data_resid), data_resid@data)) %>% dplyr::select(-c(3, 4, 5, 6, 7, 11, 12, 13, 15, 16, 17))
 coordinates(data_gw) <- ~ lon + lat
 proj4string(data_gw) <- "+init=epsg:4326" #adding WGS84 projection
 
@@ -200,13 +200,22 @@ data_gw_2180 <- spTransform(data_gw, "+init=epsg:2180")
 # bandwidth <- bw.gwr(SI ~ bio_04, data = data_gw, longlat = TRUE, kernel = "gaussian", approach = "AICc")
 bandwidth <- bw.gwr(SI ~ bio_04, data = data_gw_2180, kernel = "gaussian", approach = "AICc")
 # bandwidth <- 6.10312770599552 #longlat
+bandwidth <- 6621.596
 
 dist <- gw.dist(dp.locat = coordinates(data_gw_2180))
 
-gmr <- gwr.basic(SI ~ bio_04, data = data_gw_2180, bw = bandwidth, kernel = "gaussian", dMat = dist)
-
-
-
+gwr <- gwr.basic(SI ~ bio_04, data = data_gw_2180, bw = bandwidth, kernel = "gaussian", dMat = dist) # gwr r-sqr 0.00049
+gwr2 <- gwr.basic(SI ~ bio_04, data = data_gw_2180, bw = bandwidth * 2, kernel = "gaussian", dMat = dist) 
+gwr3 <- gwr.basic(SI ~ bio_04, data = data_gw_2180, bw = bandwidth * 10, kernel = "gaussian", dMat = dist) 
+gwr4 <- gwr.basic(SI ~ bio_04 + bio_05 + bio_12 + habitat, data = data_gw_2180, bw = bandwidth, kernel = "gaussian", dMat = dist)
+gwr5 <- gwr.basic(SI ~ bio_04 + bio_05 + bio_12 + habitat, data = data_gw_2180, bw = bandwidth * 2, kernel = "gaussian", dMat = dist)
+gwr6 <- gwr.basic(SI ~ bio_04 + bio_05 + bio_12 + habitat, data = data_gw_2180, bw = bandwidth * 10, kernel = "gaussian", dMat = dist)
+gwr7 <- gwr.basic(SI ~ ., data = data_gw_2180, bw = bandwidth, kernel = "gaussian", dMat = dist)
+gwr8 <- gwr.basic(SI ~ ., data = data_gw_2180, bw = bandwidth * 2, kernel = "gaussian", dMat = dist) 
+gwr9 <- gwr.basic(SI ~ ., data = data_gw_2180, bw = bandwidth * 10, kernel = "gaussian", dMat = dist) 
+gwr10 <- gwr.basic(SI ~ ., data = data_gw_2180, bw = bandwidth, kernel = "gaussian", dMat = dist) # not working?
+gwr11 <- gwr.basic(SI ~ ., data = data_gw_2180, bw = bandwidth * 2, kernel = "gaussian", dMat = dist)  # not working?
+gwr12 <- gwr.basic(SI ~ ., data = data_gw_2180, bw = bandwidth * 10, kernel = "gaussian", dMat = dist) # not working?
 
 ### old things -------------------------------------------------------------------------------------------------------------
 
