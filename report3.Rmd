@@ -90,5 +90,6 @@ tmap_arrange(resid1, resid2, asp = NA)
 
 Around 20% of variance explained is a good starting point for next steps.
 
-Ihavetried to calculate GWR. Bandwidth with CV was estabilished at 6.10312770599552, but then it was quite hard to get the results...
+I have some problems with GWR, RDS files with examples are in the email.
+
 
