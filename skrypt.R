@@ -7,6 +7,7 @@ library(sp)
 library(RColorBrewer)
 # library(EnvStats)
 library(feather)
+library(GWmodel)
 
 # data loading -----
 sites <- read_feather(paste0(getwd(), "/data/WISL/sites.feather"))
@@ -115,6 +116,7 @@ proj4string(site_index_gps) <- "+init=epsg:4326" #adding WGS84 projection
 # site index map plotting -----
 data(Europe, rivers)
 # vistula <- subset(rivers, name == "Vistula")
+Poland <- subset(Europe, name == "Poland")
 plot_map <- function(shape, feature) {
   tm_shape(Europe, bbox = "Poland", projection="longlat", is.master = TRUE) + tm_borders() +
     # tm_shape(vistula) + tm_lines(col = "steelblue", lwd = 4) +
@@ -125,7 +127,7 @@ plot_map <- function(shape, feature) {
 plot_map(site_index_gps, "SI")
 
 
-### spatstat -------------------------------------------------------------------------------------------------------
+### local Moran's I ---------------------------------------------------------------------------------------------------
 library(spatstat)
 library(spdep)
 library(maptools)
@@ -164,8 +166,10 @@ summary(site_index_environ)
 # write_feather(site_index_environ, paste0(getwd(), "/data/WISL/site_index_environ.feather"))
 # site_index_environ <- read_feather(paste0(getwd(), "/data/WISL/site_index_environ.feather"))
 
-coordinates(site_index_environ) <- ~ lon + lat
-proj4string(site_index_environ) <- "+init=epsg:4326" #adding WGS84 projection
+site_index_environ_cc <- site_index_environ[complete.cases(site_index_environ$bio_04) & complete.cases(site_index_environ$topoWet),]
+coordinates(site_index_environ_cc) <- ~ lon + lat
+proj4string(site_index_environ_cc) <- "+init=epsg:4326" #adding WGS84 projection
+site_index_environ_cc_2180 <- spTransform(site_index_environ_cc, "+init=epsg:2180")
 
 linear_model <- lm(SI ~ bio_04 + bio_05 + bio_12 + habitat, data = site_index_environ) #u Sochy R = 0,29
 # linear_model <- lm(SI ~ ., data = site_index_environ) #u Sochy R = 0,29
@@ -175,9 +179,9 @@ library(mgcv)
 gam_model <- mgcv::gam(SI ~ s(bio_04) + s(bio_05) + s(bio_12) + habitat, data = site_index_environ) #u Sochy R = 0,29
 summary(gam_model)
 
-data_resid <- data.frame(coordinates(site_index_environ), site_index_environ@data)
-data_resid <- data_resid[complete.cases(data_resid$habitat),]
-data_resid <- data_resid[complete.cases(data_resid$bio_04),]
+data_resid <- data.frame(coordinates(site_index_environ_cc), site_index_environ_cc@data)
+# data_resid <- data_resid[complete.cases(data_resid$habitat),]
+# data_resid <- data_resid[complete.cases(data_resid$bio_04),]0
 data_resid[, "resid_lm"] <- as.double(linear_model$residuals)
 data_resid[, "resid_gam"] <- as.double(gam_model$residuals)
 coordinates(data_resid) <- ~ lon + lat
@@ -187,24 +191,61 @@ resid1 <- plot_map(data_resid, "resid_lm")
 resid2 <- plot_map(data_resid, "resid_gam")
 tmap_arrange(resid1, resid2, asp = NA)
 
-### GWmodel -------------------------------------------------------------------------------------------------------------
-library(GWmodel)
+### GW Summary Statistics -------------------------------------------------------------------------------------------------
 
-data_gw <- as_tibble(data.frame(coordinates(data_resid), data_resid@data)) %>% dplyr::select(-c(3, 4, 5, 6, 7, 11, 12, 13, 15, 16, 17))
+localstats1 <- gwss(site_index_environ_cc_2180, vars = c("SI", "bio_04", "topoWet"), bw = 50000)
+
+data(Europe, rivers)
+Poland <- subset(Europe, name == "Poland")
+Poland_2180 <- spTransform(Poland, "+init=epsg:2180")
+
+quick.map <- function(spdf, var, legend.title, color) {
+  x <- spdf@data[,var]
+  cut.vals <- pretty(x)
+  x.cut <- cut(x, cut.vals)
+  cut.levels <- levels(x.cut)
+  cut.band <- match(x.cut, cut.levels)
+  colors <- rev(brewer.pal(length(cut.levels), color))
+  par(mar = c(1, 1, 1, 1))
+  plot(Poland_2180, col = 'olivedrab', bg = 'lightblue1')
+  # title(main.title)
+  plot(spdf, add = TRUE, col = colors[cut.band], pch = 16)
+  legend('topleft', cut.levels, col = colors, pch = 16, bty = 'n', title = legend.title)
+}
+
+quick.map(localstats1$SDF, "SI_LM", "Site Index", "Purples")
+quick.map(localstats1$SDF, "bio_04_LM", "bio 04 mean", "Purples")
+quick.map(localstats1$SDF, "topoWet_LM", "topoWet mean", "Purples")
+quick.map(localstats1$SDF, "Corr_SI.bio_04", expression(rho), "Purples")
+quick.map(localstats1$SDF, "Corr_SI.topoWet", expression(rho), "Purples")
+
+### saving data for shiny GW Local Statistics ----------------------------------------------------------------------------
+
+saveRDS(localstats1, file = "D:/Praca/Badania/Doktorat/shiny/SI_localstatistics/data/localstat.rds")
+saveRDS(Poland_2180, file = "D:/Praca/Badania/Doktorat/shiny/SI_localstatistics/data/Poland_2180.rds")
+localstats1 <- readRDS(file = "D:/Praca/Badania/Doktorat/shiny/SI_localstatistics/data/localstat.rds")
+Poland_2180 <- readRDS(file = "D:/Praca/Badania/Doktorat/shiny/SI_localstatistics/data/Poland_2180.rds")
+
+### GWmodel ---------------------------------------------------------------------------------------------------------------
+data_gw <- as_tibble(data.frame(coordinates(site_index_environ_cc), site_index_environ_cc@data)) %>% dplyr::select(-c(3, 4, 5, 6, 7, 11, 12, 13, 15, 16, 17)) %>% na.omit()
+# data_gw_2180 <- as_tibble(data.frame(coordinates(site_index_environ_cc_2180), site_index_environ_cc_2180@data)) %>% dplyr::select(-c(3, 4, 5, 6, 7, 11, 12, 13, 15, 16, 17)) %>% na.omit()
 coordinates(data_gw) <- ~ lon + lat
 proj4string(data_gw) <- "+init=epsg:4326" #adding WGS84 projection
 
 ## if projected CRS is needed
 data_gw_2180 <- spTransform(data_gw, "+init=epsg:2180")
 
-# bandwidth <- bw.gwr(SI ~ bio_04, data = data_gw, longlat = TRUE, kernel = "gaussian", approach = "AICc")
-bandwidth <- bw.gwr(SI ~ bio_04, data = data_gw_2180, kernel = "gaussian", approach = "AICc")
+bandwidth_fixed <- bw.gwr(SI ~ bio_04 + topoWet, data = data_gw_2180, kernel = "gaussian", approach = "AICc")
+bandwidth_fixed_cv <- bw.gwr(SI ~ bio_04 + topoWet, data = data_gw_2180, kernel = "gaussian", approach = "CV")
+bandwidth_adaptive <- bw.gwr(SI ~ bio_04 + topoWet, data = data_gw_2180, kernel = "gaussian", approach = "AICc", adaptive = TRUE, dMat = dist)
+bandwidth_adaptive_CV <- bw.gwr(SI ~ bio_04 + topoWet, data = data_gw_2180, kernel = "gaussian", approach = "CV", adaptive = TRUE, dMat = dist)
 # bandwidth <- 6.10312770599552 #longlat
 bandwidth <- 6621.596
 
+
 dist <- gw.dist(dp.locat = coordinates(data_gw_2180))
 
-gwr <- gwr.basic(SI ~ bio_04, data = data_gw_2180, bw = bandwidth, kernel = "gaussian", dMat = dist) # gwr r-sqr 0.00049
+gwr <- gwr.basic(SI ~ bio_04 + topoWet, data = data_gw_2180, bw = bandwidth, kernel = "gaussian", dMat = dist) # gwr r-sqr 0.00049
 gwr2 <- gwr.basic(SI ~ bio_04, data = data_gw_2180, bw = bandwidth * 2, kernel = "gaussian", dMat = dist) 
 gwr3 <- gwr.basic(SI ~ bio_04, data = data_gw_2180, bw = bandwidth * 10, kernel = "gaussian", dMat = dist) 
 gwr4 <- gwr.basic(SI ~ bio_04 + bio_05 + bio_12 + habitat, data = data_gw_2180, bw = bandwidth, kernel = "gaussian", dMat = dist)
@@ -216,6 +257,9 @@ gwr9 <- gwr.basic(SI ~ ., data = data_gw_2180, bw = bandwidth * 10, kernel = "ga
 gwr10 <- gwr.basic(SI ~ ., data = data_gw_2180, bw = bandwidth, kernel = "gaussian", dMat = dist) # not working?
 gwr11 <- gwr.basic(SI ~ ., data = data_gw_2180, bw = bandwidth * 2, kernel = "gaussian", dMat = dist)  # not working?
 gwr12 <- gwr.basic(SI ~ ., data = data_gw_2180, bw = bandwidth * 10, kernel = "gaussian", dMat = dist) # not working?
+
+
+
 
 ### old things -------------------------------------------------------------------------------------------------------------
 
