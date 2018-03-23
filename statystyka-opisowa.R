@@ -96,11 +96,11 @@ site_index %>% mutate(z_mean = as.vector(scale(SI, center = TRUE, scale = FALSE)
 
 # levels(site_index$kw) <- c("I", "II", "III", "IV", "V", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st", "VI i st")
 
-# ggplot(site_index, aes(SI)) + geom_freqpoly(binwidth = 1)
-# ggplot(site_index, aes(x = "", y = SI)) + geom_boxplot()
-# ggplot(site_index, aes(sample = SI)) + stat_qq()
-# ggplot(site_index, aes(SI)) + stat_ecdf(geom = "step")
-# summary(site_index$SI, na.rm = TRUE)
+ggplot(site_index, aes(SI)) + geom_freqpoly(binwidth = 1)
+ggplot(site_index, aes(x = "", y = SI)) + geom_boxplot()
+ggplot(site_index, aes(sample = SI)) + stat_qq()
+ggplot(site_index, aes(SI)) + stat_ecdf(geom = "step")
+summary(site_index$SI, na.rm = TRUE)
 
 # ggplot(data = site_index, aes(x = kw, y = SI)) + geom_boxplot()
 
