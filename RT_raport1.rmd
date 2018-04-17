@@ -1,0 +1,47 @@
+---
+title: "RT_raport1"
+author: "Wojciech Kedziora"
+date: "17 kwietnia 2018"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library(feather)
+library(tidyverse)
+```
+
+```{r echo=FALSE}
+read_chunk('statystyka-opisowa.R')
+```
+
+```{r data_loading, echo = FALSE}
+```
+
+```{r values, echo = FALSE}
+```
+
+```{r SI, echo = FALSE}
+```
+
+```{r POLSKA, echo = FALSE}
+```
+
+```{r krainy, echo = FALSE}
+```
+
+```{r klasy_wieku, echo = FALSE}
+```
+
+```{r zyznosc, echo = FALSE}
+```
+
+```{r wilgotnosc, echo = FALSE}
+```
+
+```{r siedlisko, echo = FALSE}
+```
