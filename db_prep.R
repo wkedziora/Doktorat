@@ -71,6 +71,9 @@ trees_raw %>%
          dbh = d13) %>%
   type_convert(., col_types = cols(plot_no = col_integer()))-> trees
 
+### adding region to tree data
+trees <- dplyr::inner_join(trees, sites, by = "subplot_no", suffix = c("", ".y")) %>% dplyr::select(-c(plot_no.y, cycle_year, plot_species, plot_age, vertical, habitat, habitat_source, habitat_status))
+
 # sample for WMS_GetFeatureInfo.R testing -----
 # write_tsv(sample_n(gps_coord, 100), "gps.coord.sample.txt")
 
