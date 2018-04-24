@@ -3,9 +3,9 @@ title: "RT_raport1"
 author: "Wojciech Kedziora"
 date: "17 kwietnia 2018"
 output:
+  word_document: default
   html_document:
     df_print: paged
-  word_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -18,7 +18,7 @@ library(tidyverse)
 ```{r echo=FALSE}
 read_chunk('statystyka-opisowa.R')
 ```
-
+# Rozdział 1
 ```{r data_loading, echo = FALSE}
 ```
 
