@@ -1,6 +1,6 @@
 ########################################
 ### NFI description for PhD research ###
-########################################s
+########################################
 
 library(tidyverse)
 library(feather)
@@ -123,10 +123,6 @@ crs(bb_hire) <- crs(sites_gps)
 
 r <- raster(bb_hire, ncol = 100, nrow = 100)
 rc <- rasterize(sites_gps@coords, r, fun = "count")
-plot(rc)
-points(sites_gps)
-plot(Poland, add = TRUE)
-
 tm_shape(rc) + tm_raster() +
         tm_shape(Region, bbox = "Poland", projection="longlat", is.master = TRUE) + tm_borders()
 
@@ -165,3 +161,5 @@ trees %>% missing_pattern(dependent_trees, explanatory_trees)
 trees %>% missing_pairs(dependent_trees, explanatory_trees)
 trees %>% missing_pairs(dependent_trees, explanatory_trees, position = "fill")
 trees %>% finalfit(dependent_trees, explanatory_trees, metrics = TRUE)
+
+#EOF

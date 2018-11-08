@@ -178,3 +178,4 @@ write_feather(trees, paste0(getwd(), "/data/WISL/trees.feather"))
 write_feather(area, paste0(getwd(), "/data/WISL/area.feather"))
 write_feather(gps, paste0(getwd(), "/data/WISL/gps.feather"))
 
+#EOF

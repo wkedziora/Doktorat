@@ -1,14 +1,18 @@
+##################################################
+### SI descriptive statistics for PhD research ###
+##################################################
+
 library(tidyverse)
 library(tmap)
 library(rgdal)
-library(sp)
+# library(sp)
 # library(FSA)
-library(RColorBrewer)
+# library(RColorBrewer)
 # library(EnvStats)
 library(feather)
-library(GWmodel)
+# library(GWmodel)
 library(EnvStats)
-library(FSA)
+library(sf)
 
 ## ----- data_loading -------------------------------------------------------------------------
 sites <- read_feather(paste0(getwd(), "/data/WISL/sites.feather")) ### comment one
@@ -20,63 +24,21 @@ litography_50k <- read_feather(paste0(getwd(), "/data/WMS/litography_50k.feather
 
 ## function for scaling SI
 scale_this <- function(x){
-  (x - mean(x, na.rm=TRUE)) / sd(x, na.rm=TRUE)
+        (x - mean(x, na.rm=TRUE)) / sd(x, na.rm=TRUE)
 } ## @knitr
 
-# data wrangling -----
-# ggplot(trees, aes(h)) + geom_freqpoly(binwidth = 1)
-# ggplot(trees, aes(x = "", y = h)) + geom_boxplot() + coord_flip()
-# ggplot(trees, aes(sample = h)) + stat_qq()
-# ggplot(trees, aes(h)) + stat_ecdf(geom = "step")
-# summary(trees$h, na.rm = TRUE)
-
-# no of sample plots with different no of h measured
-# trees %>%
-#   filter(!is.na(h)) %>%
-#   group_by(subplot_no) %>%
-#   summarise(n = n_distinct(h)) %>%
-#   group_by(n) %>%
-#   summarise(z = n_distinct(subplot_no)) %>%
-#   ggplot(aes(n, z)) +
-#   geom_bar(stat = "identity")
-# 
-# trees %>%
-#   group_by(subplot_no) %>%
-#   filter(!is.na(dbh), species == "SO") %>%
-#   left_join(., area, by = "subplot_no") %>%
-#   filter(!is.na(h)) %>%
-#   group_by(subplot_no) %>%
-#   summarise(n = n_distinct(h)) %>%
-#   group_by(n) %>%
-#   summarise(z = n_distinct(subplot_no)) %>%
-#   ggplot(aes(n, z)) +
-#   geom_bar(stat = "identity")
 
 ### Site Index calculations ----------------
 ## ----- values
 values <- tibble(
-  b1 = 1.381,
-  b3 = 32.947,
-  b2 = 4679.9
+        b1 = 1.381,
+        b3 = 32.947,
+        b2 = 4679.9
 ) ## @knitr
-
-# main assumption is that I only count in Pine trees
-# trees %>%
-#   group_by(plot_no, subplot_no) %>%
-#   filter(species == "SO") %>%
-#   summarise(H = mean(h, na.rm = TRUE), # średnia wysokość ważona pierśnicą
-#     wiek = mean(age), # wiek powierzchni
-#     SI = H * ((100 ^ values$b1) * ((wiek ^ values$b1) * (H - values$b3 + (((H - values$b3) ^ 2) + 
-#          (2 * values$b2 * H) / (wiek ^ values$b1)) ^ 0.5) + values$b2)) / ((wiek ^ values$b1) * 
-#          ((100 ^ values$b1) * (H - values$b3 + (((H - values$b3) ^ 2) + (2 * values$b2 * H) /
-#          (wiek ^ values$b1)) ^ 0.5) + values$b2))) %>% 
-#   filter(complete.cases(SI)) %>% # muszę w jakiś sposób usunąć wpisy gdzie SO nie jest panująca
-#   dplyr::mutate(kw = cut(wiek, breaks=seq(0, 260, by=20))) %>%
-#   arrange(desc(SI)) -> site_index_raw
 
 ## ------ SI --------------------------------------------------------------------------------------------
 
-# ### SI w wersji jednolitej dla całej Polski
+# ### współczynniki SI w wersji jednolitej dla całej Polski
 # trees %>%
 #   filter(species == "SO") %>%
 #   na.omit(h) %>%
@@ -89,57 +51,57 @@ values <- tibble(
 #   dplyr::summarise(SI = mean(SI_raw)) %>%
 #   filter(complete.cases(SI)) -> site_index_raw_2
 
-# Si w rozbiciu na krainy
+### współczynniki Si w rozbiciu na krainy
 trees %>%
-  filter(species == "SO") %>%
-  na.omit(h) %>%
-  dplyr::mutate(b1 = case_when(region == 1 ~ 1.281,
-                               region == 2 ~ 1.503,
-                               region == 3 ~ 1.326,
-                               region == 4 ~ 1.408,
-                               region == 5 ~ 1.418,
-                               region == 6 ~ 1.460,
-                               region == 7 ~ 1.317,
-                               region == 8 ~ 1.317),
-                b3 = case_when(region == 1 ~ 32.68,
-                               region == 2 ~ 39.75,
-                               region == 3 ~ 26.72,
-                               region == 4 ~ 22.52,
-                               region == 5 ~ 37.24,
-                               region == 6 ~ 15.14,
-                               region == 7 ~ 29.89,
-                               region == 8 ~ 29.89),
-                b2 = case_when(region == 1 ~ 8813,
-                               region == 2 ~ 2582,
-                               region == 3 ~ 9706,
-                               region == 4 ~ 7520,
-                               region == 5 ~ 2157,
-                               region == 6 ~ 10090,
-                               region == 7 ~ 1420,
-                               region == 8 ~ 1420),
-                H = h, 
-                wiek = age,
-                SI_raw = H*((100^b1)*((wiek^b1)*(H-b3+(((H-b3)^2) + 
-                                                         (2 * b2 * H) / (wiek ^ b1)) ^ 0.5) + b2)) / ((wiek ^ b1) * 
-                                                                                                        ((100 ^ b1) * (H - b3 + (((H - b3) ^ 2) + (2 * b2 * H) /
-                                                                                                                                   (wiek ^ b1)) ^ 0.5) + b2))) %>% 
-  group_by(plot_no, subplot_no) %>%
-  dplyr::summarise(SI = mean(SI_raw)) %>%
-  filter(complete.cases(SI)) -> site_index_raw_2
+        filter(gat == "SO") %>%
+        na.omit(h) %>%
+        dplyr::mutate(b1 = case_when(kraina == 1 ~ 1.281,
+                                     kraina == 2 ~ 1.503,
+                                     kraina == 3 ~ 1.326,
+                                     kraina == 4 ~ 1.408,
+                                     kraina == 5 ~ 1.418,
+                                     kraina == 6 ~ 1.460,
+                                     kraina == 7 ~ 1.317,
+                                     kraina == 8 ~ 1.317),
+                      b3 = case_when(kraina == 1 ~ 32.68,
+                                     kraina == 2 ~ 39.75,
+                                     kraina == 3 ~ 26.72,
+                                     kraina == 4 ~ 22.52,
+                                     kraina == 5 ~ 37.24,
+                                     kraina == 6 ~ 15.14,
+                                     kraina == 7 ~ 29.89,
+                                     kraina == 8 ~ 29.89),
+                      b2 = case_when(kraina == 1 ~ 8813,
+                                     kraina == 2 ~ 2582,
+                                     kraina == 3 ~ 9706,
+                                     kraina == 4 ~ 7520,
+                                     kraina == 5 ~ 2157,
+                                     kraina == 6 ~ 10090,
+                                     kraina == 7 ~ 1420,
+                                     kraina == 8 ~ 1420),
+                      H = h, 
+                      wiek = wiek,
+                      SI_raw = H*((100^b1)*((wiek^b1)*(H-b3+(((H-b3)^2) + 
+                                (2 * b2 * H) / (wiek ^ b1)) ^ 0.5) + b2)) / ((wiek ^ b1) * 
+                                ((100 ^ b1) * (H - b3 + (((H - b3) ^ 2) + (2 * b2 * H) /
+                                (wiek ^ b1)) ^ 0.5) + b2))) %>% 
+        group_by(nr_punktu, nr_podpow) %>%
+        dplyr::summarise(SI = mean(SI_raw)) %>%
+        filter(complete.cases(SI)) -> site_index_raw_2
 
 sites %>%  
-        dplyr::filter(plot_species == "SO") -> sites
+        dplyr::filter(as.character(sites$gat_pan_pr) == "So") -> sites2
 
 # main assumption is that on small areas <200m^2 is not enough trees to get proper measurments
-site_index <- dplyr::inner_join(sites, site_index_raw_2, by = "subplot_no", suffix = c("", ".y")) %>% 
-  dplyr::left_join(., area, by = "subplot_no") %>% 
-  filter(area >= 200)
+site_index <- dplyr::inner_join(sites2, site_index_raw_2, by = "nr_podpow", suffix = c("", ".y")) %>% 
+        dplyr::left_join(., area, by = "nr_podpow") %>% 
+        filter(pow_a >= 200)
 
 site_index %>% mutate(z_mean = as.vector(scale(SI, center = TRUE, scale = FALSE)), z_sd = scale_this(SI)) -> site_index
 
 ### backup write site_index ------------------------------------------------------------------------------------
 # write_feather(site_index, paste0(getwd(), "/data/WISL/site_index.feather"))
-# using fst to read/write operations?
+# consider for future: using fst to read/write operations?
 
 t <- theme_bw()
 
@@ -161,10 +123,10 @@ site_index %>%  summarize(n = n(),
 # histogram dla Site Index
 # ustalić przedziały osi X odpowiadające słupkom
 ggplot(data = site_index, aes(x = SI)) +
-  geom_histogram(binwidth = 2, color = "black", fill = "lightgrey") +
-  labs(x = "wskaźnik bonitacji (SI)", y = "częstość") +
-  scale_x_continuous(limits = c(5, 45), breaks = c(seq(5, 45, 2))) +
-  scale_y_continuous(breaks = c(seq(0, 2500, 200)))+ t
+        geom_histogram(binwidth = 2, color = "black", fill = "lightgrey") +
+        labs(x = "wskaźnik bonitacji (SI)", y = "częstość") +
+        scale_x_continuous(limits = c(5, 45), breaks = c(seq(5, 45, 2))) +
+        scale_y_continuous(breaks = c(seq(0, 2500, 200)))+ t
 
 ggplot(site_index, aes(x = "", y = SI)) + geom_boxplot() + t
 ggplot(site_index, aes(sample = SI)) + stat_qq() + t 
@@ -172,7 +134,7 @@ ggplot(site_index, aes(SI)) + stat_ecdf(geom = "step") + t
 
 ## ----- krainy ----------------------------------------------------------------------------------------
 ### podpisać krainy na wykresie
-site_index %>% group_by(region) %>% summarize(n = n(),
+site_index %>% group_by(kraina) %>% summarize(n = n(),
                                               min = min(SI), 
                                               q1 = quantile(SI, 0.25), 
                                               median = median(SI), 
@@ -183,31 +145,31 @@ site_index %>% group_by(region) %>% summarize(n = n(),
                                               max = max(SI),
                                               skewness = e1071::skewness(SI),
                                               kurtosis = e1071::kurtosis(SI)) %>%
-  dplyr::mutate(kraina = factor(region)) -> srednieSIkrainami
+        dplyr::mutate(kraina = factor(kraina)) -> srednieSIkrainami
 
 srednieSIkrainami
 
 site_index %>%
-  group_by(region) %>%
-  summarise(n = paste("n =", length(region))) -> region.labs
+        group_by(kraina) %>%
+        summarise(n = paste("n =", length(kraina))) -> kraina.labs
 
 # przeanalizować również gęstość!!!
 ggplot(data = na.omit(site_index), aes(x = SI)) +
-  geom_histogram(binwidth = 1) +
-  facet_wrap(~region, ncol = 2) +
-  geom_text(data = region.labs, aes(x=38, y=300, label=n), colour="black", inherit.aes=FALSE, parse=FALSE) +
-  labs(x = "wskaźnik bonitacji (SI)", y = "częstość") + t 
+        geom_histogram(binwidth = 1) +
+        facet_wrap(~kraina, ncol = 2) +
+        geom_text(data = kraina.labs, aes(x=38, y=300, label=n), colour="black", inherit.aes=FALSE, parse=FALSE) +
+        labs(x = "wskaźnik bonitacji (SI)", y = "częstość") + t 
 
-ggplot(data = na.omit(site_index), aes(x = region, y = SI)) +
-  geom_boxplot(notch = TRUE) +
-  stat_n_text(size = 3) +
-  labs(x = "kraina przyrodniczo-leśna (kpl)", y = "wskaźnik bonitacji (SI)") + t
+ggplot(data = na.omit(site_index), aes(x = kraina, y = SI)) +
+        geom_boxplot(notch = TRUE) +
+        stat_n_text(size = 3) +
+        labs(x = "kraina przyrodniczo-leśna (kpl)", y = "wskaźnik bonitacji (SI)") + t
 
 # test Kruskala-Wallisa
 ### zamienić zapis naukowy na zwykły!!! - 3 miejsca po przecinku!
-kruskal.test(SI ~ region, site_index)
-pairwise.wilcox.test(site_index$SI, site_index$region, p.adjust.method = "BH") # test post-hoc
-# dunnTest(SI ~ region, data = site_index, method="bh") # test post-hoc
+kruskal.test(SI ~ kraina, site_index)
+pairwise.wilcox.test(site_index$SI, site_index$kraina, p.adjust.method = "BH") # test post-hoc
+# dunnTest(SI ~ kraina, data = site_index, method="bh") # test post-hoc
 
 ### sprawdzić wartości odstające - jakie siedliska i inne cechy!!!
 
@@ -226,9 +188,9 @@ site_index %>% group_by(kw) %>% summarize(n = n(),
 
 #propozycja wrzucenia go do pracy
 ggplot(data = na.omit(site_index), aes(x = kw, y = SI)) +
-  geom_boxplot(notch = TRUE) +
-  stat_n_text(size = 3) +
-  labs(x = "klasa wieku (kw)", y = "wskaźnik bonitacji (SI)") + t
+        geom_boxplot(notch = TRUE) +
+        stat_n_text(size = 3) +
+        labs(x = "klasa wieku (kw)", y = "wskaźnik bonitacji (SI)") + t
 
 # czy jest tak ze mlodsze drzeowstany maja lepsza bonitację?
 # czy też wzory są dalej niedskonałe że zawyżają młode?
@@ -243,7 +205,7 @@ pairwise.wilcox.test(site_index$SI, site_index$kw, p.adjust.method = "BH")
 ### na medianach współczynnik korelacja spearmana a nie pearsona
 ## ----- zyznosc ----------------------------------------------------------------------------------------
 ### kiedy wyróżniamy górskie?
-site_index %>% group_by(fertility) %>% summarize(n = n(),
+site_index %>% group_by(zyzn) %>% summarize(n = n(),
                                                  min = min(SI), 
                                                  q1 = quantile(SI, 0.25), 
                                                  median = median(SI), 
@@ -255,18 +217,18 @@ site_index %>% group_by(fertility) %>% summarize(n = n(),
                                                  skewness = e1071::skewness(SI),
                                                  kurtosis = e1071::kurtosis(SI)) 
 
-ggplot(data = na.omit(site_index), aes(x = fertility, y = SI)) +
-  geom_boxplot(notch = TRUE) +
-  stat_n_text(size = 3) +
-  labs(x = "grupa żyznościowa", y = "wskaźnik bonitacji (SI)") + t
+ggplot(data = na.omit(site_index), aes(x = zyzn, y = SI)) +
+        geom_boxplot(notch = TRUE) +
+        stat_n_text(size = 3) +
+        labs(x = "grupa żyznościowa", y = "wskaźnik bonitacji (SI)") + t
 
 # test Kruskala-Wallisa
-kruskal.test(SI ~ fertility, site_index)
-pairwise.wilcox.test(site_index$SI, site_index$fertility, p.adjust.method = "BH") # test post-hoc
+kruskal.test(SI ~ zyzn, site_index)
+pairwise.wilcox.test(site_index$SI, site_index$zyzn, p.adjust.method = "BH") # test post-hoc
 # dunnTest(SI ~ fertility, data = site_index, method="bh") # test post-hoc
 
 ## ----- wilgotnosc ----------------------------------------------------------------------------------------
-site_index %>% group_by(humidity) %>% summarize(n = n(),
+site_index %>% group_by(wilg1) %>% summarize(n = n(),
                                                 min = min(SI), 
                                                 q1 = quantile(SI, 0.25), 
                                                 median = median(SI), 
@@ -277,18 +239,18 @@ site_index %>% group_by(humidity) %>% summarize(n = n(),
                                                 max = max(SI),
                                                 skewness = e1071::skewness(SI),
                                                 kurtosis = e1071::kurtosis(SI))
-ggplot(data = na.omit(site_index), aes(x = humidity, y = SI)) +
-  geom_boxplot(notch = TRUE) +
-  stat_n_text(size = 3) +
-  labs(x = "grupa wilgotnościowa skomasowana", y = "wskaźnik bonitacji (SI)") + t
+ggplot(data = na.omit(site_index), aes(x = wilg1, y = SI)) +
+        geom_boxplot(notch = TRUE) +
+        stat_n_text(size = 3) +
+        labs(x = "grupa wilgotnościowa skomasowana", y = "wskaźnik bonitacji (SI)") + t
 
 # test Kruskala-Wallisa
-kruskal.test(SI ~ humidity, site_index)
-pairwise.wilcox.test(site_index$SI, site_index$humidity, p.adjust.method = "BH") # test post-hoc
+kruskal.test(SI ~ wilg1, site_index)
+pairwise.wilcox.test(site_index$SI, site_index$wilg1, p.adjust.method = "BH") # test post-hoc
 # dunnTest(SI ~ humidity, data = site_index, method="bh") # test post-hoc
 
 ## ----- wilgotnosc-grupami ----------------------------------------------------------------------------------------
-site_index %>% group_by(humidity2) %>% summarize(n = n(),
+site_index %>% group_by(wilg2) %>% summarize(n = n(),
                                                  min = min(SI), 
                                                  q1 = quantile(SI, 0.25), 
                                                  median = median(SI), 
@@ -299,18 +261,18 @@ site_index %>% group_by(humidity2) %>% summarize(n = n(),
                                                  max = max(SI),
                                                  skewness = e1071::skewness(SI),
                                                  kurtosis = e1071::kurtosis(SI))
-ggplot(data = na.omit(site_index), aes(x = humidity2, y = SI)) +
-  geom_boxplot(notch = TRUE) +
-  stat_n_text(size = 3) +
-  labs(x = "grupa wilgotnościowa", y = "wskaźnik bonitacji (SI)") + t
+ggplot(data = na.omit(site_index), aes(x = wilg2, y = SI)) +
+        geom_boxplot(notch = TRUE) +
+        stat_n_text(size = 3) +
+        labs(x = "grupa wilgotnościowa", y = "wskaźnik bonitacji (SI)") + t
 
 # test Kruskala-Wallisa
-kruskal.test(SI ~ humidity2, site_index)
-pairwise.wilcox.test(site_index$SI, site_index$humidity2, p.adjust.method = "BH") # test post-hoc
+kruskal.test(SI ~ wilg2, site_index)
+pairwise.wilcox.test(site_index$SI, site_index$wilg2, p.adjust.method = "BH") # test post-hoc
 # dunnTest(SI ~ humidity2, data = site_index, method="bh") # test post-hoc
 
 ## ----- siedlisko ----------------------------------------------------------------------------------------
-site_index %>% group_by(habitat) %>% summarize(n = n(),
+site_index %>% group_by(tsl) %>% summarize(n = n(),
                                                min = min(SI), 
                                                q1 = quantile(SI, 0.25), 
                                                median = median(SI), 
@@ -321,19 +283,19 @@ site_index %>% group_by(habitat) %>% summarize(n = n(),
                                                max = max(SI),
                                                skewness = e1071::skewness(SI),
                                                kurtosis = e1071::kurtosis(SI))
-ggplot(data = na.omit(site_index), aes(y = SI, x = habitat)) +
-  geom_boxplot(notch = TRUE) +
-  stat_n_text(size = 3) +
-  labs(x = "siedliskowy typ lasu", y = "wskaźnik bonitacji (SI)") + t
+ggplot(data = na.omit(site_index), aes(y = SI, x = tsl)) +
+        geom_boxplot(notch = TRUE) +
+        stat_n_text(size = 3) +
+        labs(x = "siedliskowy typ lasu", y = "wskaźnik bonitacji (SI)") + t
 
-ggplot(data = na.omit(site_index), aes(y = SI, x = reorder(habitat, SI, FUN=median))) +
-  geom_boxplot(notch = TRUE) +
-  stat_n_text(size = 3) +
-  labs(x = "siedliskowy typ lasu", y = "wskaźnik bonitacji (SI)") + t
+ggplot(data = na.omit(site_index), aes(y = SI, x = reorder(tsl, SI, FUN=median))) +
+        geom_boxplot(notch = TRUE) +
+        stat_n_text(size = 3) +
+        labs(x = "siedliskowy typ lasu", y = "wskaźnik bonitacji (SI)") + t
 
 # test Kruskala-Wallisa
-kruskal.test(SI ~ habitat, site_index)
-pairwise.wilcox.test(site_index$SI, site_index$habitat, p.adjust.method = "BH") # test post-hoc
+kruskal.test(SI ~ tsl, site_index)
+pairwise.wilcox.test(site_index$SI, site_index$tsl, p.adjust.method = "BH") # test post-hoc
 # dunnTest(SI ~ habitat, data = site_index, method="bh") # test post-hoc
 
 ### podzielić na siedliska nizinne, wyżynne górskie na jednym wykresie - uwypuklić grupy wysokościowe!
@@ -345,96 +307,86 @@ pairwise.wilcox.test(site_index$SI, site_index$habitat, p.adjust.method = "BH") 
 ## ----- facets ----------------------------------------------------------------------------------------
 # wykres w podziale na krainy w zależności od wieku i regionu
 ggplot(data = na.omit(site_index), aes(y = SI, x = kw)) +
-  geom_boxplot(notch = TRUE) +
-  stat_n_text(size = 3) +
-  labs(x = "klasa wieku (kw)", y = "wskaźnik bonitacji (SI)") + facet_wrap(~region, ncol = 2) + t
+        geom_boxplot(notch = TRUE) +
+        stat_n_text(size = 3) +
+        labs(x = "klasa wieku (kw)", y = "wskaźnik bonitacji (SI)") + facet_wrap(~kraina, ncol = 2) + t
 
 # wykres w podziale na krainy w zależności od regionu i wieku
 site_index %>%
-  group_by(kw) %>%
-  summarise(n = paste("n =", length(kw))) -> kw.labs
+        group_by(kw) %>%
+        summarise(n = paste("n =", length(kw))) -> kw.labs
 
-ggplot(data = na.omit(site_index), aes(y = SI, x = region)) +
-  geom_boxplot(notch = TRUE) +
-  geom_text(data = kw.labs, aes(x = 7, y = 50, label = n), colour="black", inherit.aes = FALSE, parse = FALSE) +
-  stat_n_text(size = 3) +
-  labs(x = "kraina przyrodniczo-leśna (kpl)", y = "wskaźnik bonitacji (SI)") +
-  facet_wrap(~kw, ncol = 2) + t
+ggplot(data = na.omit(site_index), aes(y = SI, x = kraina)) +
+        geom_boxplot(notch = TRUE) +
+        geom_text(data = kw.labs, aes(x = 7, y = 50, label = n), colour="black", inherit.aes = FALSE, parse = FALSE) +
+        stat_n_text(size = 3) +
+        labs(x = "kraina przyrodniczo-leśna (kpl)", y = "wskaźnik bonitacji (SI)") +
+        facet_wrap(~kw, ncol = 2) + t
 
 # przygotować dla siedlisk w klasach wieku
 # współczynnik zmienności dla 100 drzew na hektarze - poszukać danych!!!
 
 ## ----- gps ----------------------------------------------------------------------------------------
-site_index_gps <- dplyr::left_join(site_index, gps, by = "plot_no") #%>% na.omit()
+site_index_gps <- dplyr::left_join(site_index, gps, by = "nr_punktu") #%>% na.omit()
 
 ### backup write/load site_index_gps ---------------------------------------------------------------------------------
 # write_feather(site_index_gps, paste0(getwd(), "/data/WISL/site_index_gps.feather"))
 # site_index_gps <- read_feather(paste0(getwd(), "/data/WISL/site_index_gps.feather"))
 
-coordinates(site_index_gps) <- ~ lon + lat #adding sptial relationship
-proj4string(site_index_gps) <- "+init=epsg:4326" #adding WGS84 projection
+site_index_gps <- st_as_sf(site_index_gps, coords = c('dlugosc', 'szerokosc'), crs = "+init=epsg:4326")
 
 ## ----- region-map ----------------------------------------------------------------------------------------
-data(Europe, rivers)
-# vistula <- subset(rivers, name == "Vistula")
-Poland <- subset(Europe, name == "Poland")
+st_read(dsn = "D:\\Praca\\Badania\\Doktorat\\shp", layer = "Region") %>% filter(COUNTRY == "Poland") -> Poland.shp
 plot_map_dots <- function(shape, feature) {
-  tm_shape(Europe, bbox = "Poland", projection="longlat", is.master = TRUE) + tm_borders() +
-    # tm_shape(vistula) + tm_lines(col = "steelblue", lwd = 4) +
-    tm_shape(shape) + tm_dots(col = feature, size = 0.05, palette = "BrBG", n = 5, auto.palette.mapping = FALSE) +
-    tm_style_white(legend.position = c("left", "bottom"))
+        tm_shape(Poland.shp, bbox = "Poland", projection="longlat", is.master = TRUE) + tm_borders() +
+                # tm_shape(vistula) + tm_lines(col = "steelblue", lwd = 4) +
+                tm_shape(shape) + tm_dots(col = feature, size = 0.05, palette = "BrBG", n = 5) +
+                tm_style( "white", legend.position = c("left", "bottom"))
 }
 
 ### udział bagiennych i wilgotnych w udziale dla poszczególnych krain
-
-data.frame(table(site_index$region, site_index$habitat)) -> a
+# data.frame(table(site_index$kraina, site_index$tsl)) -> a
 
 plot_map_dots(site_index_gps, "SI")
 
 # mapa ze średnim SI dla krain
 # myCols <- adjustcolor(colorRampPalette(brewer.pal(n=8, 'Greens'))(100), .85) #kolorki na przyszłość
 plot_map_polys <- function(shape, feature) {
-  tm_shape(Europe, bbox = "Poland", projection="longlat", is.master = TRUE) + tm_borders() +
-    # tm_shape(vistula) + tm_lines(col = "steelblue", lwd = 4) +
-    tm_shape(shape) + tm_polygons(feature, palette="RdYlGn", n = 5, auto.palette.mapping = FALSE) +
-    tm_style_white(legend.position = c("left", "bottom"))
+        tm_shape(Poland.shp, bbox = "Poland", projection="longlat", is.master = TRUE) + tm_borders() +
+                # tm_shape(vistula) + tm_lines(col = "steelblue", lwd = 4) +
+                tm_shape(shape) + tm_polygons(feature, palette="RdYlGn", n = 5) +
+                tm_style( "white", legend.position = c("left", "bottom"))
 }
-krainy.shp <- readOGR(dsn = "D:\\Praca\\Badania\\Doktorat\\shp", layer = "krainy")
-krainy2.shp <- sp::merge(krainy.shp, as.data.frame(srednieSIkrainami), by = "kraina")
-plot_map_polys(krainy2.shp, "median")
+krainy.shp <- st_read(dsn = "D:\\Praca\\Badania\\Doktorat\\shp", layer = "krainy")
+krainySI.shp <- merge(krainy.shp, srednieSIkrainami, by = "kraina")
+plot_map_polys(krainySI.shp, "median")
+plot_map_polys(krainySI.shp, "mean")
 
 ## ----- inspectorate-map ----------------------------------------------------------------------------------------
 
 site_index %>%
-  group_by(kodn) %>%
-  summarise(median = median(SI)) -> srednieSInadles
+        group_by(kodn) %>%
+        summarise(median = median(SI)) -> srednieSInadles
 
 # mapa ze średnim SI dla nadleśnictw
-nadles.shp <- readOGR(dsn = "D:\\Praca\\Badania\\Doktorat\\shp", layer = "nadles84simple")
-nadles2.shp <- sp::merge(nadles.shp, srednieSInadles, by.x="KODN", by.y = "kodn")
+nadles.shp <- st_read(dsn = "D:\\Praca\\Badania\\Doktorat\\shp", layer = "nadles84simple")
+nadles2.shp <- merge(nadles.shp, srednieSInadles, by.x="KODN", by.y = "kodn")
 plot_map_polys(nadles2.shp, "median")
 
 ## ----- inspectorate-map-age ----------------------------------------------------------------------------------------
 site_index %>%
-  group_by(kw, kodn) %>%
-  summarise(median = median(SI)) %>%
-  tidyr::spread(key = kw, value = median) %>%
-  dplyr::rename("VI+" = 'VI i st') -> srednieSInadlesKW
+        group_by(kw, kodn) %>%
+        summarise(median = median(SI)) %>%
+        tidyr::spread(key = kw, value = median) %>%
+        dplyr::rename("VI" = 'VI i st') -> srednieSInadlesKW
 
-plot_map_polys2 <- function(shape, feature) {
-  tm_shape(Europe, bbox = "Poland", projection="longlat", is.master = TRUE) + tm_borders() +
-    # tm_shape(vistula) + tm_lines(col = "steelblue", lwd = 4) +
-    tm_shape(shape) + tm_polygons(feature, palette="RdYlGn", style = "fixed", breaks = c(10, 15, 20, 25, 30, 35, 40, 45), auto.palette.mapping = FALSE) +
-    tm_style_white(legend.position = c("left", "bottom"))
-} 
-
-nadles3.shp <- sp::merge(nadles.shp, srednieSInadlesKW, by.x="KODN", by.y = "kodn")
-kw1 <- plot_map_polys2(nadles3.shp, "I")
-kw2 <- plot_map_polys2(nadles3.shp, "II")
-kw3 <- plot_map_polys2(nadles3.shp, "III")
-kw4 <- plot_map_polys2(nadles3.shp, "IV")
-kw5 <- plot_map_polys2(nadles3.shp, "V")
-kw6 <- plot_map_polys2(nadles3.shp, "VI+")
+nadles3.shp <- merge(nadles.shp, srednieSInadlesKW, by.x="KODN", by.y = "kodn")
+kw1 <- plot_map_polys(nadles3.shp, "I")
+kw2 <- plot_map_polys(nadles3.shp, "II")
+kw3 <- plot_map_polys(nadles3.shp, "III")
+kw4 <- plot_map_polys(nadles3.shp, "IV")
+kw5 <- plot_map_polys(nadles3.shp, "V")
+kw6 <- plot_map_polys(nadles3.shp, "VI")
 tmap_arrange(kw1, kw2, kw3, kw4, kw5, kw6, asp = NA, ncol = 3)
 
 ## @knitr
