@@ -131,9 +131,9 @@ tm_shape(rc) + tm_raster() +
         tm_shape(Region, bbox = "Poland", projection="longlat", is.master = TRUE) + tm_borders()
 
 ### checking for missing data ---------------------------------------------------------------------------
-dependent <- c("plot_species")
+dependent <- c("gat_pan_pr")
 # explanatory <- c("plot_age", "habitat", "habitat_status", "kw", "ownership")
-explanatory <- c("kw", "owner")
+explanatory <- c("kw", "wlasc")
 sites %>% ff_glimpse()
 
 # Identify missing values in each variable
@@ -149,9 +149,9 @@ sites %>% missing_pairs(dependent, explanatory, position = "fill")
 # sites %>% finalfit(dependent, explanatory, metrics=TRUE)
 
 # checking the same for "trees"
-dependent_trees <- c("age")
+dependent_trees <- c("wiek")
 # explanatory <- c("plot_age", "habitat", "habitat_status", "kw", "ownership")
-explanatory_trees <- c("h", "owner", "kw", "dbh", "fertility")
+explanatory_trees <- c("h", "wlasc", "kw", "d13", "zyzn") # kw na powierzchni próbnej
 trees %>% ff_glimpse()
 
 # Identify missing values in each variable
