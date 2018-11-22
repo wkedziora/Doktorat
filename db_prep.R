@@ -43,7 +43,12 @@ sites_raw %>%
         dplyr::filter(nr_cyklu == 2) %>%
         dplyr::select(-nr_cyklu) %>%
         dplyr::mutate(gat_pan_pr = str_to_title(gat_pan_pr)) %>%
-        type_convert(col_types = cols_only(gat_pan_pr = col_factor(levels = NULL))) %>%
+        type_convert(col_types = cols_only(gat_pan_pr = col_factor(levels = c("So", "Md", "Św", "Jd", "Dg", "So.we", "So.k", "So.c", "So.b", 
+                                                                              "Db", "Db.b", "Db.s", "Db.c", "Js", "Wz", "Ak", 
+                                                                              "Bk", "Brz", "Brz.o", "Gb", "Lp", "Kl", "Jw", "Bst", "Ol", "Ol.s", "Wb", "Wb.no", "Iwa",
+                                                                              "Tp", "Tp.c", "Os", "Jkl",
+                                                                              "Lsz", "Czm", "Jrz", "Bez.c", "Czm.p", "Der.b", "Śl", "Głg", "Jb",  "Gr", "Czr",
+                                                                              "Der.ś", "Cyp.l" )))) %>%
         mutate(tsl = factor(tsl),
                okr_tsl = factor(okr_tsl),
                stan_siedl = factor(stan_siedl),
