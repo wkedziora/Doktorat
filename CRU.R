@@ -41,3 +41,21 @@ pdsi_crop <- crop(pdsi, extent(Poland.wgs84), snap='out')
 # plot-test
 plot(pdsi_crop[[113]])
 plot(Poland.wgs84, border = "black", add = TRUE)
+
+# NASA nitrogen data ------
+nitro2017_name <- "d://Praca//Badania//Doktorat//data//NASA//OMI_trno2_0.10x0.10_201701_V3.nc"
+nitro2014_name <- "d://Praca//Badania//Doktorat//data//NASA//OMI_trno2_0.10x0.10_201405_V3.nc"
+
+nitro2019_name <- "d://Praca//Badania//Doktorat//data//NASA//2019_01_NO2Total.txt"
+
+read.csv(nitro2019_name)
+
+nitro <- stack(nitro2014_name, varname = "TroposphericNO2")
+crs(nitro) <- CRS('+init=EPSG:4326')
+bb <- extent(-180, 180, -90, 90)
+nitro <- setExtent(nitro, bb)
+res(nitro) <- 0.1
+nitro_crop <- crop(nitro, extent(Poland.wgs84), snap = 'out')
+# plot-test
+plot(nitro_crop)
+plot(Poland.wgs84, border = "black", add = TRUE)
